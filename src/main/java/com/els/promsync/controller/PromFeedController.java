@@ -76,13 +76,15 @@ public class PromFeedController {
                 xml.append("      <categoryId>").append(categoryMap.get(p.getDealerCategory())).append("</categoryId>\n");
             }
 
-            // 1. Даємо базову назву (щоб Пром пропустив файл) + даємо UA (щоб лягло в укр. версію)
-            xml.append("      <name>").append(escapeXml(p.getNameUk())).append("</name>\n");
+            // Назва
+            xml.append("      <name>").append(escapeXml(p.getNameRu())).append("</name>\n");
             xml.append("      <name_ua>").append(escapeXml(p.getNameUk())).append("</name_ua>\n");
 
-            // 2. Те саме з ключовими словами
+            // Ключові слова
+            if (p.getKeywordsRu() != null && !p.getKeywordsRu().isBlank()) {
+                xml.append("      <keywords>").append(escapeXml(p.getKeywordsRu())).append("</keywords>\n");
+            }
             if (p.getKeywordsUk() != null && !p.getKeywordsUk().isBlank()) {
-                xml.append("      <keywords>").append(escapeXml(p.getKeywordsUk())).append("</keywords>\n");
                 xml.append("      <keywords_ua>").append(escapeXml(p.getKeywordsUk())).append("</keywords_ua>\n");
             }
 
@@ -91,11 +93,16 @@ public class PromFeedController {
                 xml.append("      <vendor>").append(escapeXml(p.getVendor())).append("</vendor>\n");
             }
 
-            // 3. Те саме з описом
+            // Опис
+            if (p.getDescriptionRu() != null) {
+                xml.append("      <description><![CDATA[")
+                        .append(p.getDescriptionRu().replace("\n", "<br/>"))
+                        .append("]]></description>\n");
+            }
             if (p.getDescriptionUk() != null) {
-                String cleanDesc = p.getDescriptionUk().replace("\n", "<br/>");
-                xml.append("      <description><![CDATA[").append(cleanDesc).append("]]></description>\n");
-                xml.append("      <description_ua><![CDATA[").append(cleanDesc).append("]]></description_ua>\n");
+                xml.append("      <description_ua><![CDATA[")
+                        .append(p.getDescriptionUk().replace("\n", "<br/>"))
+                        .append("]]></description_ua>\n");
             }
 
             if (p.getTechnicalSpecs() != null) {
@@ -110,7 +117,7 @@ public class PromFeedController {
             }
 
             if (p.getWarranty() != null && !p.getWarranty().isBlank()) {
-                xml.append("      <param name=\"Гарантійний термін (міс)\">").append(escapeXml(p.getWarranty())).append("</param>\n");
+                xml.append("      <param name=\"Гарантійний термін\">").append(escapeXml(p.getWarranty())).append(" міс</param>\n");
             }
 
             xml.append("    </offer>\n");

@@ -38,8 +38,11 @@ public class ProductSyncService {
         String warranty = "";
         if (row.size() > 5 && row.get(5) != null) {
             String rawWarranty = row.get(5).toString().trim();
-            // Беремо частину до плюса і залишаємо тільки цифри
-            warranty = rawWarranty.split("\\+")[0].replaceAll("[^0-9]", "");
+            String yearsStr = rawWarranty.split("\\+")[0].replaceAll("[^0-9]", "");
+            if (!yearsStr.isEmpty()) {
+                int months = Integer.parseInt(yearsStr) * 12;
+                warranty = String.valueOf(months);
+            }
         }
 
         BigDecimal basePriceUsd = BigDecimal.ZERO;
@@ -74,16 +77,18 @@ public class ProductSyncService {
             AiProductResponse aiData = openAiService.enrichProduct(originalName, category);
 
             if (aiData != null) {
-                product.setNameUk(aiData.seoName());
-                product.setDescriptionUk(aiData.seoDescription());
-                if (aiData.keywords() != null) {
-                    product.setKeywordsUk(String.join(", ", aiData.keywords()));
-                }
+                // Українська
+                product.setNameUk(aiData.seoNameUa());
+                product.setDescriptionUk(aiData.seoDescriptionUa());
+                if (aiData.keywordsUa() != null) product.setKeywordsUk(String.join(", ", aiData.keywordsUa()));
+
+                // Російська
+                product.setNameRu(aiData.seoNameRu());
+                product.setDescriptionRu(aiData.seoDescriptionRu());
+                if (aiData.keywordsRu() != null) product.setKeywordsRu(String.join(", ", aiData.keywordsRu()));
+
                 product.setTechnicalSpecs(aiData.specs());
-                product.setVendor(aiData.vendor()); // ДОДАНО: записуємо виробника
-                log.info("✅ AI успішно розібрав характеристики та описи для [{}]", sku);
-            } else {
-                product.setNameUk(originalName);
+                product.setVendor(aiData.vendor());
             }
         }
 

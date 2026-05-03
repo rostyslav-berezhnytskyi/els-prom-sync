@@ -48,10 +48,19 @@ public class Product {
     private String nameUk; // SEO-оптимізована назва (від AI)
 
     @Column(columnDefinition = "TEXT")
+    private String nameRu;
+
+    @Column(columnDefinition = "TEXT")
     private String descriptionUk; // Гарний опис з нашими перевагами (від AI)
 
     @Column(columnDefinition = "TEXT")
+    private String descriptionRu;
+
+    @Column(columnDefinition = "TEXT")
     private String keywordsUk; // Ключові слова через кому (від AI)
+
+    @Column(columnDefinition = "TEXT")
+    private String keywordsRu;
 
     // ==========================================
     // БЛОК 4: МЕДІА (Збираємо локально)

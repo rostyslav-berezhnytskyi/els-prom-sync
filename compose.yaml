@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: els-prom-sync-db
+    ports:
+      - "5433:5432" # Прокидаємо базу на порт 5433 твого комп'ютера/сервера
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - prom-sync-data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  prom-sync-data: # Окремий том для даних синхронізатора

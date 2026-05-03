@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: els-prom-sync
+  datasource:
+    url: jdbc:postgresql://localhost:5433/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+google:
+  sheets:
+    spreadsheet-id: ${DEALER_SPREADSHEET_ID}
+
+openai:
+  api-key: ${OPENAI_API_KEY}

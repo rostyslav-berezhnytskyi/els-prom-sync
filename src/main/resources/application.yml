@@ -10,6 +10,22 @@ spring:
       ddl-auto: update
     show-sql: true
 
+app:
+  exchange-rate: 44.5
+  ai-enabled: false
+
+pricing:
+  panel-markup: 1.15
+
+  cheap-price-usd: 200
+  standard-price-usd: 600
+  high-price-usd: 2000
+  max-price-usd: 6000
+
+  cheap-markup: 1.35
+  standard-markup: 1.15
+  min-markup: 1.08
+
 google:
   sheets:
     spreadsheet-id: ${DEALER_SPREADSHEET_ID}

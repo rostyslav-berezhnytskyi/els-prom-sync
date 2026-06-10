@@ -20,9 +20,10 @@ public class ProductSyncService {
 
     private final ProductRepository productRepository;
     private final OpenAiService openAiService; // Наш сервіс для GPT
+    private final PriceCalculationService priceCalculationService;
 
-    @Value("${app.exchange-rate:44}")
-    private BigDecimal exchangeRate;
+    @Value("${app.ai-enabled:true}")
+    private boolean aiEnabled;
 
     @Transactional
     public void processRow(List<Object> row, String category) {
@@ -45,18 +46,14 @@ public class ProductSyncService {
             }
         }
 
-        BigDecimal basePriceUsd = BigDecimal.ZERO;
-        if (row.size() > 4 && row.get(4) != null) {
-            try {
-                String priceStr = row.get(4).toString().replaceAll("[^0-9.]", "");
-                basePriceUsd = new BigDecimal(priceStr);
-            } catch (Exception e) {
-                log.warn("Не вдалося розпарсити ціну: {}", row.get(4));
-            }
-        }
+        BigDecimal basePriceUsd = parseUsdPrice(getCell(row, 4));
 
         // Рахуємо фінальну ціну в гривнях з націнкою
-        BigDecimal priceUah = calculateFinalPrice(basePriceUsd);
+        BigDecimal priceUah = priceCalculationService.calculateFinalPrice(
+                basePriceUsd,
+                originalName,
+                category
+        );
 
         // Шукаємо в базі або створюємо новий
         Product product = productRepository.findBySku(sku).orElse(new Product());
@@ -70,7 +67,7 @@ public class ProductSyncService {
         product.setWarranty(warranty);
 
         // Якщо товар новий, підключаємо магію AI
-        if (product.getId() == null) {
+        if (product.getId() == null && aiEnabled) {
             log.info("Новий товар [{}]. Категорія: [{}]. Запитуємо AI...", sku, category);
 
             // Викликаємо оновлений метод
@@ -95,19 +92,72 @@ public class ProductSyncService {
         productRepository.save(product);
     }
 
-    private BigDecimal calculateFinalPrice(BigDecimal priceUsd) {
-        if (priceUsd == null || priceUsd.compareTo(BigDecimal.ZERO) <= 0) {
+    /**
+     * Safely reads a cell value from Google Sheets row.
+     */
+    private String getCell(List<Object> row, int index) {
+        if (row == null || row.size() <= index || row.get(index) == null) {
+            return "";
+        }
+
+        return row.get(index).toString().trim();
+    }
+
+    /**
+     * Parses USD price from Google Sheets.
+     *
+     * Examples:
+     * "715" -> 715
+     * "0,165" -> 0.165
+     * "0,205*" -> 0.205
+     * "-" -> 0
+     */
+    private BigDecimal parseUsdPrice(String rawValue) {
+        if (rawValue == null) {
             return BigDecimal.ZERO;
         }
-        BigDecimal markupPercentage;
-        double price = priceUsd.doubleValue();
-        if (price < 1000) {
-            markupPercentage = new BigDecimal("1.15");
-        } else if (price <= 2500) {
-            markupPercentage = new BigDecimal("1.12");
-        } else {
-            markupPercentage = new BigDecimal("1.10");
+
+        String value = rawValue
+                .trim()
+                .replace(",", ".")
+                .replaceAll("[^0-9.]", "");
+
+        if (value.isBlank()) {
+            return BigDecimal.ZERO;
         }
-        return priceUsd.multiply(markupPercentage).multiply(exchangeRate).setScale(0, RoundingMode.HALF_UP);
+
+        try {
+            return new BigDecimal(value);
+        } catch (NumberFormatException e) {
+            log.warn("Cannot parse USD price from value: {}", rawValue);
+            return BigDecimal.ZERO;
+        }
+    }
+
+    /**
+     * Prints product price calculation preview without saving anything to database.
+     * Used only for testing Google Sheets parsing and price calculation.
+     */
+    public void previewRowPrice(List<Object> row, String category, int sheetRowNumber) {
+        String sku = getCell(row, 0);
+        String originalName = getCell(row, 1);
+        String rawDealerPrice = getCell(row, 4);
+
+        BigDecimal dealerPriceUsd = parseUsdPrice(rawDealerPrice);
+
+        BigDecimal finalPriceUah = priceCalculationService.calculateFinalPrice(
+                dealerPriceUsd,
+                originalName,
+                category
+        );
+
+        System.out.println(
+                "PRICE TEST | ROW: " + sheetRowNumber +
+                        " | TAB: " + category +
+                        " | SKU: " + sku +
+                        " | DEALER PRICE: " + dealerPriceUsd +
+                        " | FINAL PRICE UAH: " + finalPriceUah +
+                        " | NAME: " + originalName
+        );
     }
 }

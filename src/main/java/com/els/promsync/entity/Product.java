@@ -30,6 +30,7 @@ public class Product {
 
     private String originalName; // Оригінальна назва дилера (щоб ти міг звірити)
     private String dealerCategory; // Категорія з вкладки (Акумулятори LV)
+    @Column(precision = 10, scale = 4)
     private BigDecimal basePriceUsd; // Ціна без ПДВ у $
     private String availability; // Статус (в дорозі, в наявності)
     private String warranty; // Гарантія (5+5, 5 років)

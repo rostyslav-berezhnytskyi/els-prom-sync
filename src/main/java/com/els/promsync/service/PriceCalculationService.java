@@ -22,8 +22,11 @@ public class PriceCalculationService {
             Pattern.compile("(?<!\\d)([3-9]\\d{2})\\s*M\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
 
-    @Value("${panel-markup:1.15}")
+    @Value("${pricing.panel-markup:1.15}")
     private BigDecimal panelMarkup;
+
+    @Value("${pricing.cable-markup:1.15}")
+    private BigDecimal cableMarkup;
 
     @Value("${pricing.cheap-price-usd:200}")
     private BigDecimal cheapPriceUsd;
@@ -61,6 +64,10 @@ public class PriceCalculationService {
 
         if (isSolarPanel(category)) {
             return calculatePanelPrice(dealerPriceUsd, productName);
+        }
+
+        if (isSolarCable(category)) {
+            return calculateFixedMarkupProductPrice(dealerPriceUsd, cableMarkup);
         }
 
         return calculateRegularProductPrice(dealerPriceUsd);
@@ -202,5 +209,22 @@ public class PriceCalculationService {
         }
 
         return minMarkup;
+    }
+
+    private BigDecimal calculateFixedMarkupProductPrice(BigDecimal itemCostUsd, BigDecimal markup) {
+        BigDecimal exchangeRate = currencyRateService.getUsdSellRate();
+
+        return itemCostUsd
+                .multiply(exchangeRate)
+                .multiply(markup)
+                .setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private boolean isSolarCable(String category) {
+        if (category == null) {
+            return false;
+        }
+
+        return category.toLowerCase().contains("сонячний кабель");
     }
 }

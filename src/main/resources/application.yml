@@ -15,7 +15,8 @@ app:
   ai-enabled: false
 
 pricing:
-  panel-markup: 1.15
+  panel-markup: 1.12
+  cable-markup: 1.12
 
   cheap-price-usd: 200
   standard-price-usd: 600

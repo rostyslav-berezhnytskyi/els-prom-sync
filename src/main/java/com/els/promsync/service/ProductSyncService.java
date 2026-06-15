@@ -21,6 +21,7 @@ public class ProductSyncService {
     private final ProductRepository productRepository;
     private final OpenAiService openAiService; // Наш сервіс для GPT
     private final PriceCalculationService priceCalculationService;
+    private final ProductCategoryResolverService productCategoryResolverService;
 
     @Value("${app.ai-enabled:true}")
     private boolean aiEnabled;
@@ -33,26 +34,30 @@ public class ProductSyncService {
 
         String sku = row.get(0).toString().trim();
         String originalName = row.size() > 1 && row.get(1) != null ? row.get(1).toString().trim() : "";
-        String availability = row.size() > 2 && row.get(2) != null ? row.get(2).toString().trim() : "";
+        String availability = parseAvailability(row, category);
+        String effectiveCategory = productCategoryResolverService.resolve(
+                category,
+                null,
+                sku,
+                originalName
+        );
+
+        System.out.println(
+                "CATEGORY RESOLVED | SOURCE: " + category +
+                        " | EFFECTIVE: " + effectiveCategory +
+                        " | SKU: " + sku
+        );
 
         // ГАРАНТІЯ
-        String warranty = "";
-        if (row.size() > 5 && row.get(5) != null) {
-            String rawWarranty = row.get(5).toString().trim();
-            String yearsStr = rawWarranty.split("\\+")[0].replaceAll("[^0-9]", "");
-            if (!yearsStr.isEmpty()) {
-                int months = Integer.parseInt(yearsStr) * 12;
-                warranty = String.valueOf(months);
-            }
-        }
+        String warranty = parseWarranty(row, category);
 
-        BigDecimal basePriceUsd = parseUsdPrice(getCell(row, 4));
+        BigDecimal basePriceUsd = parseDealerPrice(row, category);
 
         // Рахуємо фінальну ціну в гривнях з націнкою
         BigDecimal priceUah = priceCalculationService.calculateFinalPrice(
                 basePriceUsd,
                 originalName,
-                category
+                effectiveCategory
         );
 
         // Шукаємо в базі або створюємо новий
@@ -60,7 +65,7 @@ public class ProductSyncService {
 
         product.setSku(sku);
         product.setOriginalName(originalName);
-        product.setDealerCategory(category);
+        product.setDealerCategory(effectiveCategory);
         product.setAvailability(availability);
         product.setBasePriceUsd(basePriceUsd);
         product.setPriceUah(priceUah);
@@ -68,10 +73,10 @@ public class ProductSyncService {
 
         // Якщо товар новий, підключаємо магію AI
         if (product.getId() == null && aiEnabled) {
-            log.info("Новий товар [{}]. Категорія: [{}]. Запитуємо AI...", sku, category);
+            log.info("Новий товар [{}]. Категорія: [{}]. Запитуємо AI...", sku, effectiveCategory);
 
             // Викликаємо оновлений метод
-            AiProductResponse aiData = openAiService.enrichProduct(originalName, category);
+            AiProductResponse aiData = openAiService.enrichProduct(originalName, effectiveCategory);
 
             if (aiData != null) {
                 // Українська
@@ -135,6 +140,20 @@ public class ProductSyncService {
     }
 
     /**
+     * Reads product availability from Google Sheets.
+     *
+     * Most tabs use column C.
+     * BESS tab uses column E.
+     */
+    private String parseAvailability(List<Object> row, String sourceCategory) {
+        if (isBess(sourceCategory)) {
+            return getCell(row, 4);
+        }
+
+        return getCell(row, 2);
+    }
+
+    /**
      * Prints product price calculation preview without saving anything to database.
      * Used only for testing Google Sheets parsing and price calculation.
      */
@@ -159,5 +178,85 @@ public class ProductSyncService {
                         " | FINAL PRICE UAH: " + finalPriceUah +
                         " | NAME: " + originalName
         );
+    }
+
+    /**
+     * Reads dealer price from Google Sheets.
+     *
+     * Most tabs use column E: price without VAT.
+     * Solar cable uses column D if column E is empty.
+     * BESS uses column F because this tab has a different structure.
+     */
+    private BigDecimal parseDealerPrice(List<Object> row, String sourceCategory) {
+        if (isBess(sourceCategory)) {
+            return parseUsdPrice(getCell(row, 5));
+        }
+
+        String priceWithoutVat = getCell(row, 4);
+
+        if (hasPrice(priceWithoutVat)) {
+            return parseUsdPrice(priceWithoutVat);
+        }
+
+        if (isSolarCable(sourceCategory)) {
+            return parseUsdPrice(getCell(row, 3));
+        }
+
+        return BigDecimal.ZERO;
+    }
+
+    private boolean isBess(String category) {
+        if (category == null) {
+            return false;
+        }
+
+        return category.toLowerCase().contains("bess");
+    }
+
+    private boolean isSolarCable(String category) {
+        if (category == null) {
+            return false;
+        }
+
+        return category.toLowerCase().contains("сонячний кабель");
+    }
+
+    private boolean hasPrice(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+
+        String cleaned = value.trim();
+
+        return !cleaned.equals("-") && cleaned.matches(".*\\d.*");
+    }
+
+    /**
+     * Reads warranty from Google Sheets.
+     *
+     * Most tabs use column F for warranty.
+     * BESS tab has price in column F, so warranty is not available there.
+     */
+    private String parseWarranty(List<Object> row, String sourceCategory) {
+        if (isBess(sourceCategory)) {
+            return "";
+        }
+
+        String rawWarranty = getCell(row, 5);
+
+        if (rawWarranty.isBlank()) {
+            return "";
+        }
+
+        String yearsStr = rawWarranty
+                .split("\\+")[0]
+                .replaceAll("[^0-9]", "");
+
+        if (yearsStr.isBlank()) {
+            return "";
+        }
+
+        int months = Integer.parseInt(yearsStr) * 12;
+        return String.valueOf(months);
     }
 }

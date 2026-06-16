@@ -25,11 +25,22 @@ public class PromFeedController {
     public String generatePromFeed() {
         List<Product> products = productRepository.findAll();
 
-        Map<String, Integer> categoryMap = new HashMap<>();
-        int categoryIdCounter = 1;
+        Map<String, Long> categoryMap = new HashMap<>();
+        long categoryIdCounter = 900000000L;
+
         for (Product p : products) {
-            if (p.getDealerCategory() != null && !categoryMap.containsKey(p.getDealerCategory())) {
-                categoryMap.put(p.getDealerCategory(), categoryIdCounter++);
+            String category = p.getDealerCategory();
+
+            if (category == null || category.isBlank() || categoryMap.containsKey(category)) {
+                continue;
+            }
+
+            Long fixedCategoryId = getFixedPromGroupId(category);
+
+            if (fixedCategoryId != null) {
+                categoryMap.put(category, fixedCategoryId);
+            } else {
+                categoryMap.put(category, categoryIdCounter++);
             }
         }
 
@@ -47,7 +58,7 @@ public class PromFeedController {
         xml.append("  </currencies>\n");
 
         xml.append("  <categories>\n");
-        for (Map.Entry<String, Integer> entry : categoryMap.entrySet()) {
+        for (Map.Entry<String, Long> entry : categoryMap.entrySet()) {
             xml.append("    <category id=\"").append(entry.getValue()).append("\">")
                     .append(escapeXml(entry.getKey()))
                     .append("</category>\n");
@@ -58,10 +69,24 @@ public class PromFeedController {
         for (Product p : products) {
             if (p.getPriceUah() == null || p.getSku() == null) continue;
 
-            // Наявність. Пром розуміє: available="true" (в наявності), "false" (під замовлення/немає)
-            boolean available = "в наявності".equalsIgnoreCase(p.getAvailability());
+            String availability = p.getAvailability() == null
+                    ? ""
+                    : p.getAvailability().trim().toLowerCase();
 
-            xml.append("    <offer id=\"").append(escapeXml(p.getSku())).append("\" available=\"").append(available).append("\">\n");
+            String promAvailability = mapAvailabilityForYml(availability);
+            boolean readyToShip = isReadyToShip(availability);
+
+            xml.append("    <offer id=\"")
+                    .append(escapeXml(p.getSku()))
+                    .append("\" available=\"")
+                    .append(promAvailability)
+                    .append("\"");
+
+            if (readyToShip) {
+                xml.append(" in_stock=\"true\"");
+            }
+
+            xml.append(">\n");
 
             // ОБОВ'ЯЗКОВО: Артикул (vendorCode) щоб Пром міг порівнювати товари
             xml.append("      <vendorCode>").append(escapeXml(p.getSku())).append("</vendorCode>\n");
@@ -74,6 +99,24 @@ public class PromFeedController {
 
             if (categoryMap.containsKey(p.getDealerCategory())) {
                 xml.append("      <categoryId>").append(categoryMap.get(p.getDealerCategory())).append("</categoryId>\n");
+            }
+
+            if (isReadyToShip(availability)) {
+                xml.append("      <regions>\n");
+                xml.append("        <region>Київ</region>\n");
+                xml.append("      </regions>\n");
+            }
+
+            if (isPreorderOrOnTheWay(availability)) {
+                xml.append("      <pickup>false</pickup>\n");
+                xml.append("      <delivery>true</delivery>\n");
+                xml.append("      <sales_notes>предоплата</sales_notes>\n");
+            }
+
+            if (isReserved(availability)) {
+                xml.append("      <pickup>false</pickup>\n");
+                xml.append("      <delivery>false</delivery>\n");
+                xml.append("      <sales_notes>у резерві, уточнюйте наявність</sales_notes>\n");
             }
 
             // Назва
@@ -136,5 +179,67 @@ public class PromFeedController {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&apos;");
+    }
+
+    private Long getFixedPromGroupId(String category) {
+        if ("Сонячний кабель".equalsIgnoreCase(category)) {
+            return 154519445L;
+        }
+
+        return null;
+    }
+
+    private boolean isReadyToShip(String availability) {
+        if (availability == null || availability.isBlank()) {
+            return false;
+        }
+
+        String value = availability.toLowerCase().trim();
+
+        return value.contains("в наявності")
+                || value.contains("на складі");
+    }
+
+    private String mapAvailabilityForYml(String availability) {
+        if (availability == null || availability.isBlank()) {
+            return "false";
+        }
+
+        String value = availability.toLowerCase().trim();
+
+        if (value.contains("в наявності") || value.contains("на складі")) {
+            return "true";
+        }
+
+        if (value.contains("в дорозі")
+                || value.contains("під замовлення")
+                || value.contains("под заказ")
+                || value.contains("резерв")) {
+            return "false";
+        }
+
+        return "false";
+    }
+
+    private boolean isPreorderOrOnTheWay(String availability) {
+        if (availability == null || availability.isBlank()) {
+            return false;
+        }
+
+        String value = availability.toLowerCase().trim();
+
+        return value.contains("в дорозі")
+                || value.contains("під замовлення")
+                || value.contains("под заказ");
+    }
+
+    private boolean isReserved(String availability) {
+        if (availability == null || availability.isBlank()) {
+            return false;
+        }
+
+        String value = availability.toLowerCase().trim();
+
+        return value.contains("резерв");
     }
 }

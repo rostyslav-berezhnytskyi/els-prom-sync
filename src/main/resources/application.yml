@@ -12,7 +12,7 @@ spring:
 
 app:
   exchange-rate: 44.5
-  ai-enabled: false
+  ai-enabled: true
 
 pricing:
   panel-markup: 1.12

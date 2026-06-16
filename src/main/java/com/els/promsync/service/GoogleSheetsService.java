@@ -15,17 +15,17 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class GoogleSheetsService {
 
-    private static final int START_ROW = 11;
-    private static final int END_ROW = 11;
+    private static final int START_ROW = 13;
+    private static final int END_ROW = 13;
 
     private static final List<String> ALLOWED_TABS = List.of(
 //            "Фотоелектричні модулі",
 //            "Мережеві Інвертори",
-            "Сонячний кабель"
+//            "Сонячний кабель",
 //            "Гібридні інвертори",
 //            "Акумулятори LV",
 //            "Акумулятори HV",
-//            "BESS",
+            "BESS"
 //            "Автономні Інвертори"
             // "Аксесуари" // add later if needed
     );
@@ -255,9 +255,17 @@ public class GoogleSheetsService {
             return false;
         }
 
-        String cleaned = value.trim();
+        String cleaned = value.trim().toLowerCase();
 
-        return !cleaned.equals("-") && cleaned.matches(".*\\d.*");
+        if (cleaned.equals("-")) {
+            return false;
+        }
+
+        if (cleaned.contains("деталі") || cleaned.contains("менеджер")) {
+            return false;
+        }
+
+        return cleaned.matches(".*\\d.*");
     }
 
     private String getCell(List<Object> row, int index) {

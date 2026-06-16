@@ -53,6 +53,11 @@ public class ProductSyncService {
 
         BigDecimal basePriceUsd = parseDealerPrice(row, category);
 
+        if (basePriceUsd.compareTo(BigDecimal.ZERO) <= 0) {
+            log.warn("Skip product without valid dealer price. SKU: {}, name: {}", sku, originalName);
+            return;
+        }
+
         // Рахуємо фінальну ціну в гривнях з націнкою
         BigDecimal priceUah = priceCalculationService.calculateFinalPrice(
                 basePriceUsd,

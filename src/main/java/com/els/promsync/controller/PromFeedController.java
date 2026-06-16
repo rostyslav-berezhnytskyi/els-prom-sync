@@ -186,6 +186,10 @@ public class PromFeedController {
             return 154519445L;
         }
 
+        if ("BESS".equalsIgnoreCase(category)) {
+            return 154540119L;
+        }
+
         return null;
     }
 

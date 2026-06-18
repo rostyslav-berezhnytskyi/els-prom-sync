@@ -15,18 +15,18 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class GoogleSheetsService {
 
-    private static final int START_ROW = 13;
-    private static final int END_ROW = 13;
+    private static final int START_ROW = 47;
+    private static final int END_ROW = 47;
 
     private static final List<String> ALLOWED_TABS = List.of(
 //            "Фотоелектричні модулі",
-//            "Мережеві Інвертори",
+            "Мережеві Інвертори"
 //            "Сонячний кабель",
 //            "Гібридні інвертори",
 //            "Акумулятори LV",
 //            "Акумулятори HV",
-            "BESS"
-//            "Автономні Інвертори"
+//            "BESS",
+//            "Автономні Інвертори",
             // "Аксесуари" // add later if needed
     );
 

@@ -16,6 +16,10 @@ public class ProductCategoryResolverService {
         String section = normalize(sectionTitle);
         String text = normalize(sku + " " + productName);
 
+        if (isInverterMeterOrCurrentTransformer(section, text)) {
+            return "Лічильники до інверторів";
+        }
+
         if (tab.contains("акумулятори hv")) {
             if (containsAny(text, "стійка", "стойка", "rack", "hrack", "lrack", "qube")) {
                 return "Стійки для акумуляторів";
@@ -33,21 +37,6 @@ public class ProductCategoryResolverService {
         }
 
         if (tab.contains("мережеві")) {
-            if (section.contains("лічильник")
-                    || containsAny(text,
-                    "лічильник",
-                    "smart meter",
-                    "meter",
-                    "трансформатор",
-                    "ct-set",
-                    "dtsd",
-                    "dtsu",
-                    "sdm630",
-                    "eastron",
-                    "acrel")) {
-                return "Лічильники до інверторів";
-            }
-
             return "Мережеві інвертори";
         }
 
@@ -78,5 +67,22 @@ public class ProductCategoryResolverService {
         }
 
         return value.toLowerCase().trim();
+    }
+
+    private boolean isInverterMeterOrCurrentTransformer(String section, String text) {
+        return section.contains("лічильник")
+                || containsAny(text,
+                "лічильник",
+                "smart meter",
+                "meter",
+                "трансформатор",
+                "трансформатори струму",
+                "ct-set",
+                "ct set",
+                "dtsd",
+                "dtsu",
+                "sdm630",
+                "eastron",
+                "acrel");
     }
 }

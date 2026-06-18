@@ -35,7 +35,7 @@ public class PromFeedController {
                 continue;
             }
 
-            Long fixedCategoryId = getFixedPromGroupId(category);
+            Long fixedCategoryId = getFeedCategoryId(category);
 
             if (fixedCategoryId != null) {
                 categoryMap.put(category, fixedCategoryId);
@@ -181,16 +181,28 @@ public class PromFeedController {
                 .replace("'", "&apos;");
     }
 
-    private Long getFixedPromGroupId(String category) {
-        if ("Сонячний кабель".equalsIgnoreCase(category)) {
-            return 154519445L;
+    private Long getFeedCategoryId(String category) {
+        if (category == null) {
+            return 900000000L;
         }
 
-        if ("BESS".equalsIgnoreCase(category)) {
-            return 154540119L;
-        }
+        String value = category.trim().toLowerCase();
 
-        return null;
+        return switch (value) {
+            case "фотоелектричні модулі" -> 900000001L;
+            case "акумулятори lv" -> 900000002L;
+            case "акумулятори hv" -> 900000003L;
+            case "гібридні інвертори" -> 900000004L;
+            case "мережеві інвертори" -> 900000005L;
+            case "автономні інвертори" -> 900000006L;
+            case "сонячний кабель" -> 900000007L;
+            case "bess" -> 900000008L;
+            case "лічильники до інверторів" -> 900000009L;
+            case "bms для акумуляторів" -> 900000010L;
+            case "стійки для акумуляторів" -> 900000011L;
+            case "комплектуючі bess" -> 900000012L;
+            default -> 900009999L;
+        };
     }
 
     private boolean isReadyToShip(String availability) {

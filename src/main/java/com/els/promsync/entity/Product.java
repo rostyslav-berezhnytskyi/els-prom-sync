@@ -25,11 +25,12 @@ public class Product {
     // ==========================================
     // БЛОК 1: ДАНІ З ТАБЛИЦІ ДИЛЕРА (Оновлюються щодня)
     // ==========================================
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String sku; // Артикул (RW-F16)
 
     private String originalName; // Оригінальна назва дилера (щоб ти міг звірити)
     private String dealerCategory; // Категорія з вкладки (Акумулятори LV)
+
     @Column(precision = 10, scale = 4)
     private BigDecimal basePriceUsd; // Ціна без ПДВ у $
     private String availability; // Статус (в дорозі, в наявності)
@@ -75,6 +76,15 @@ public class Product {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Map<String, String> technicalSpecs = new HashMap<>();
+
+    @Column(name = "dealer_code")
+    private String dealerCode; // SOLAR_VERSE, OTHER_DEALER, etc.
+
+    private Boolean activeFromDealer = true;
+
+    private LocalDateTime lastSeenAt;
+
+    private LocalDateTime removedFromDealerAt;
 
     @PrePersist
     @PreUpdate

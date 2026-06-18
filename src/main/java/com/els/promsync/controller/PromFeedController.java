@@ -29,6 +29,9 @@ public class PromFeedController {
         long categoryIdCounter = 900000000L;
 
         for (Product p : products) {
+            if (Boolean.FALSE.equals(p.getActiveFromDealer())) {
+                continue;}
+
             String category = p.getDealerCategory();
 
             if (category == null || category.isBlank() || categoryMap.containsKey(category)) {
@@ -67,6 +70,9 @@ public class PromFeedController {
 
         xml.append("  <offers>\n");
         for (Product p : products) {
+            if (Boolean.FALSE.equals(p.getActiveFromDealer())) {
+                continue;}
+
             if (p.getPriceUah() == null || p.getSku() == null) continue;
 
             String availability = p.getAvailability() == null

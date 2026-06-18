@@ -5,5 +5,6 @@ public enum SyncChangeType {
     PRICE_CHANGED,
     AVAILABILITY_CHANGED,
     NAME_CHANGED,
+    MISSING_FROM_DEALER,
     ERROR
 }

@@ -37,6 +37,12 @@ public class GoogleSheetsService {
     @Value("${google.sheets.spreadsheet-id}")
     private String spreadsheetId;
 
+    @Value("${app.dealer-code:SOLAR_VERSE}")
+    private String dealerCode;
+
+    @Value("${app.detect-missing-products:false}")
+    private boolean detectMissingProducts;
+
     /**
      * Temporary entry point for dealer sheet sync.
      * Later we can rename this method to syncDealerSheet().
@@ -50,6 +56,7 @@ public class GoogleSheetsService {
      */
     public SyncReport syncDealerSheet() {
         SyncReport report = new SyncReport();
+        Set<String> seenSkus = new HashSet<>();
 
         try {
             System.out.println("--- ДІАГНОСТИКА ПІДКЛЮЧЕННЯ ---");
@@ -68,10 +75,14 @@ public class GoogleSheetsService {
                     continue;
                 }
 
-                processSheet(originalTitle, cleanTitle, report);
+                processSheet(originalTitle, cleanTitle, report, seenSkus);
             }
 
             report.markGoogleSheetsReadSuccess();
+
+            if (detectMissingProducts) {
+                productSyncService.markMissingProductsFromDealer(dealerCode, seenSkus, report);
+            }
 
         } catch (IOException e) {
             System.err.println("❌ Помилка читання таблиці: " + e.getMessage());
@@ -86,7 +97,12 @@ public class GoogleSheetsService {
     /**
      * Reads one Google Sheets tab and processes its product rows.
      */
-    private void processSheet(String originalTitle, String cleanTitle, SyncReport report) throws IOException {
+    private void processSheet(
+            String originalTitle,
+            String cleanTitle,
+            SyncReport report,
+            Set<String> seenSkus
+    ) throws IOException {
         System.out.println("\n➡ Починаємо читати вкладку: [" + cleanTitle + "]");
 
         Set<Integer> hiddenRows = getHiddenRowNumbers(spreadsheetId, originalTitle);
@@ -99,7 +115,7 @@ public class GoogleSheetsService {
 
         System.out.println("✅ Зчитано рядків: " + values.size());
 
-        processRows(cleanTitle, values, hiddenRows, report);
+        processRows(cleanTitle, values, hiddenRows, report, seenSkus);
     }
 
     /**
@@ -118,7 +134,13 @@ public class GoogleSheetsService {
     /**
      * Filters rows and sends real product rows to ProductSyncService.
      */
-    private void processRows(String tabTitle, List<List<Object>> values, Set<Integer> hiddenRows, SyncReport report) {
+    private void processRows(
+            String tabTitle,
+            List<List<Object>> values,
+            Set<Integer> hiddenRows,
+            SyncReport report,
+            Set<String> seenSkus
+    ) {
         for (int i = 0; i < values.size(); i++) {
             int realSheetRowNumber = START_ROW + i;
             List<Object> row = values.get(i);
@@ -135,20 +157,21 @@ public class GoogleSheetsService {
                 continue;
             }
 
+            String sku = getCell(row, 0);
+            seenSkus.add(sku);
+
             System.out.println(
                     "IMPORT | ROW: " + realSheetRowNumber +
                             " | TAB: " + tabTitle +
-                            " | SKU: " + getCell(row, 0)
+                            " | SKU: " + sku
             );
 
             report.addProcessedRow();
 
             try {
-                productSyncService.processRow(row, tabTitle, report);
+                productSyncService.processRow(row, tabTitle, dealerCode, report);
             } catch (Exception e) {
-                String sku = getCell(row, 0);
                 String name = getCell(row, 1);
-
                 report.addError("Помилка обробки товару: " + sku + " | " + name + " | " + e.getMessage());
             }
         }

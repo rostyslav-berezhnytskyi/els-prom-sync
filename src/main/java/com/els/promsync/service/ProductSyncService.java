@@ -14,6 +14,8 @@ import com.els.promsync.dto.SyncReport;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.time.LocalDateTime;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -24,17 +26,20 @@ public class ProductSyncService {
     private final OpenAiService openAiService; // Наш сервіс для GPT
     private final PriceCalculationService priceCalculationService;
     private final ProductCategoryResolverService productCategoryResolverService;
+    @Value("${app.dealer-code:SOLAR_VERSE}")
+    private String defaultDealerCode;
 
     @Value("${app.ai-enabled:true}")
     private boolean aiEnabled;
 
+
     @Transactional
     public void processRow(List<Object> row, String category) {
-        processRow(row, category, null);
+        processRow(row, category, defaultDealerCode, null);
     }
 
     @Transactional
-    public void processRow(List<Object> row, String category, SyncReport report) {
+    public void processRow(List<Object> row, String category, String dealerCode, SyncReport report) {
         if (row == null || row.isEmpty() || row.get(0).toString().trim().isEmpty()) {
             return;
         }
@@ -42,6 +47,7 @@ public class ProductSyncService {
         String sku = row.get(0).toString().trim();
         String originalName = row.size() > 1 && row.get(1) != null ? row.get(1).toString().trim() : "";
         String availability = parseAvailability(row, category);
+
         String effectiveCategory = productCategoryResolverService.resolve(
                 category,
                 null,
@@ -68,7 +74,8 @@ public class ProductSyncService {
                 effectiveCategory
         );
 
-        Product product = productRepository.findBySku(sku).orElse(new Product());
+        Product product = productRepository.findByDealerCodeAndSku(dealerCode, sku)
+                .orElse(new Product());
 
         boolean isNewProduct = product.getId() == null;
 
@@ -76,6 +83,7 @@ public class ProductSyncService {
         String oldAvailability = product.getAvailability();
         String oldOriginalName = product.getOriginalName();
 
+        product.setDealerCode(dealerCode);
         product.setSku(sku);
         product.setOriginalName(originalName);
         product.setDealerCategory(effectiveCategory);
@@ -83,6 +91,10 @@ public class ProductSyncService {
         product.setBasePriceUsd(basePriceUsd);
         product.setPriceUah(priceUah);
         product.setWarranty(warranty);
+
+        product.setActiveFromDealer(true);
+        product.setLastSeenAt(LocalDateTime.now());
+        product.setRemovedFromDealerAt(null);
 
         if (isNewProduct && aiEnabled) {
             log.info("Новий товар [{}]. Категорія: [{}]. Запитуємо AI...", sku, effectiveCategory);
@@ -381,5 +393,46 @@ public class ProductSyncService {
         }
 
         return value.stripTrailingZeros().toPlainString() + " $";
+    }
+
+    @Transactional
+    public void markMissingProductsFromDealer(String dealerCode, Set<String> seenSkus, SyncReport report) {
+        if (dealerCode == null || dealerCode.isBlank()) {
+            return;
+        }
+
+        if (seenSkus == null || seenSkus.isEmpty()) {
+            log.warn("Seen SKU list is empty. Missing product detection skipped for dealer: {}", dealerCode);
+            return;
+        }
+
+        List<Product> activeProducts = productRepository.findByDealerCodeAndActiveFromDealerTrue(dealerCode);
+
+        for (Product product : activeProducts) {
+            String sku = product.getSku();
+
+            if (sku == null || seenSkus.contains(sku)) {
+                continue;
+            }
+
+            String oldAvailability = product.getAvailability();
+
+            product.setActiveFromDealer(false);
+            product.setAvailability("зник з каталогу дилера");
+            product.setRemovedFromDealerAt(LocalDateTime.now());
+
+            productRepository.save(product);
+
+            if (report != null) {
+                report.addChange(
+                        SyncChangeType.MISSING_FROM_DEALER,
+                        product.getSku(),
+                        product.getOriginalName(),
+                        product.getDealerCategory(),
+                        oldAvailability,
+                        "зник з каталогу дилера"
+                );
+            }
+        }
     }
 }

@@ -13,6 +13,8 @@ spring:
 app:
   exchange-rate: 44.5
   ai-enabled: true
+  dealer-code: SOLAR_VERSE
+  detect-missing-products: false
 
 telegram:
   enabled: true

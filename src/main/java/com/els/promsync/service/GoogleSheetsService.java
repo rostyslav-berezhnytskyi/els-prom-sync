@@ -5,6 +5,7 @@ import com.google.api.services.sheets.v4.model.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import com.els.promsync.dto.SyncReport;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -40,14 +41,16 @@ public class GoogleSheetsService {
      * Temporary entry point for dealer sheet sync.
      * Later we can rename this method to syncDealerSheet().
      */
-    public void testReadSheet() {
-        syncDealerSheet();
+    public SyncReport testReadSheet() {
+        return syncDealerSheet();
     }
 
     /**
      * Reads all allowed dealer tabs and sends product rows to ProductSyncService.
      */
-    public void syncDealerSheet() {
+    public SyncReport syncDealerSheet() {
+        SyncReport report = new SyncReport();
+
         try {
             System.out.println("--- ДІАГНОСТИКА ПІДКЛЮЧЕННЯ ---");
 
@@ -65,18 +68,25 @@ public class GoogleSheetsService {
                     continue;
                 }
 
-                processSheet(originalTitle, cleanTitle);
+                processSheet(originalTitle, cleanTitle, report);
             }
+
+            report.markGoogleSheetsReadSuccess();
 
         } catch (IOException e) {
             System.err.println("❌ Помилка читання таблиці: " + e.getMessage());
+            report.addError("Помилка читання Google Sheets: " + e.getMessage());
+        } finally {
+            report.finish();
         }
+
+        return report;
     }
 
     /**
      * Reads one Google Sheets tab and processes its product rows.
      */
-    private void processSheet(String originalTitle, String cleanTitle) throws IOException {
+    private void processSheet(String originalTitle, String cleanTitle, SyncReport report) throws IOException {
         System.out.println("\n➡ Починаємо читати вкладку: [" + cleanTitle + "]");
 
         Set<Integer> hiddenRows = getHiddenRowNumbers(spreadsheetId, originalTitle);
@@ -89,7 +99,7 @@ public class GoogleSheetsService {
 
         System.out.println("✅ Зчитано рядків: " + values.size());
 
-        processRows(cleanTitle, values, hiddenRows);
+        processRows(cleanTitle, values, hiddenRows, report);
     }
 
     /**
@@ -108,18 +118,20 @@ public class GoogleSheetsService {
     /**
      * Filters rows and sends real product rows to ProductSyncService.
      */
-    private void processRows(String tabTitle, List<List<Object>> values, Set<Integer> hiddenRows) {
+    private void processRows(String tabTitle, List<List<Object>> values, Set<Integer> hiddenRows, SyncReport report) {
         for (int i = 0; i < values.size(); i++) {
             int realSheetRowNumber = START_ROW + i;
             List<Object> row = values.get(i);
 
             if (hiddenRows.contains(realSheetRowNumber)) {
                 System.out.println("⏭ Skip hidden row: " + realSheetRowNumber + " | DATA: " + row);
+                report.addSkippedRow();
                 continue;
             }
 
             if (!isProductRow(row, tabTitle)) {
                 System.out.println("⏭ Skip service/empty row: " + realSheetRowNumber + " | DATA: " + row);
+                report.addSkippedRow();
                 continue;
             }
 
@@ -129,7 +141,16 @@ public class GoogleSheetsService {
                             " | SKU: " + getCell(row, 0)
             );
 
-            productSyncService.processRow(row, tabTitle);
+            report.addProcessedRow();
+
+            try {
+                productSyncService.processRow(row, tabTitle, report);
+            } catch (Exception e) {
+                String sku = getCell(row, 0);
+                String name = getCell(row, 1);
+
+                report.addError("Помилка обробки товару: " + sku + " | " + name + " | " + e.getMessage());
+            }
         }
     }
 

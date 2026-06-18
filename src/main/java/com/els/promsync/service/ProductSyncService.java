@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.els.promsync.dto.SyncChangeType;
+import com.els.promsync.dto.SyncReport;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -28,6 +30,11 @@ public class ProductSyncService {
 
     @Transactional
     public void processRow(List<Object> row, String category) {
+        processRow(row, category, null);
+    }
+
+    @Transactional
+    public void processRow(List<Object> row, String category, SyncReport report) {
         if (row == null || row.isEmpty() || row.get(0).toString().trim().isEmpty()) {
             return;
         }
@@ -42,31 +49,32 @@ public class ProductSyncService {
                 originalName
         );
 
-        System.out.println(
-                "CATEGORY RESOLVED | SOURCE: " + category +
-                        " | EFFECTIVE: " + effectiveCategory +
-                        " | SKU: " + sku
-        );
-
-        // ГАРАНТІЯ
         String warranty = parseWarranty(row, category);
-
         BigDecimal basePriceUsd = parseDealerPrice(row, category);
 
         if (basePriceUsd.compareTo(BigDecimal.ZERO) <= 0) {
             log.warn("Skip product without valid dealer price. SKU: {}, name: {}", sku, originalName);
+
+            if (report != null) {
+                report.addError("Товар без валідної ціни дилера: " + sku + " | " + originalName);
+            }
+
             return;
         }
 
-        // Рахуємо фінальну ціну в гривнях з націнкою
         BigDecimal priceUah = priceCalculationService.calculateFinalPrice(
                 basePriceUsd,
                 originalName,
                 effectiveCategory
         );
 
-        // Шукаємо в базі або створюємо новий
         Product product = productRepository.findBySku(sku).orElse(new Product());
+
+        boolean isNewProduct = product.getId() == null;
+
+        BigDecimal oldDealerPrice = product.getBasePriceUsd();
+        String oldAvailability = product.getAvailability();
+        String oldOriginalName = product.getOriginalName();
 
         product.setSku(sku);
         product.setOriginalName(originalName);
@@ -76,30 +84,44 @@ public class ProductSyncService {
         product.setPriceUah(priceUah);
         product.setWarranty(warranty);
 
-        // Якщо товар новий, підключаємо магію AI
-        if (product.getId() == null && aiEnabled) {
+        if (isNewProduct && aiEnabled) {
             log.info("Новий товар [{}]. Категорія: [{}]. Запитуємо AI...", sku, effectiveCategory);
 
-            // Викликаємо оновлений метод
             AiProductResponse aiData = openAiService.enrichProduct(originalName, effectiveCategory);
 
             if (aiData != null) {
-                // Українська
                 product.setNameUk(aiData.seoNameUa());
                 product.setDescriptionUk(aiData.seoDescriptionUa());
                 if (aiData.keywordsUa() != null) product.setKeywordsUk(String.join(", ", aiData.keywordsUa()));
 
-                // Російська
                 product.setNameRu(aiData.seoNameRu());
                 product.setDescriptionRu(aiData.seoDescriptionRu());
                 if (aiData.keywordsRu() != null) product.setKeywordsRu(String.join(", ", aiData.keywordsRu()));
 
                 product.setTechnicalSpecs(aiData.specs());
                 product.setVendor(aiData.vendor());
+            } else if (report != null) {
+                report.addError("AI не повернув опис для нового товару: " + sku + " | " + originalName);
             }
         }
 
         productRepository.save(product);
+
+        if (report != null) {
+            collectReportChanges(
+                    report,
+                    isNewProduct,
+                    sku,
+                    originalName,
+                    effectiveCategory,
+                    oldDealerPrice,
+                    basePriceUsd,
+                    oldAvailability,
+                    availability,
+                    oldOriginalName,
+                    originalName
+            );
+        }
     }
 
     /**
@@ -263,5 +285,101 @@ public class ProductSyncService {
 
         int months = Integer.parseInt(yearsStr) * 12;
         return String.valueOf(months);
+    }
+
+    private void collectReportChanges(
+            SyncReport report,
+            boolean isNewProduct,
+            String sku,
+            String productName,
+            String category,
+            BigDecimal oldDealerPrice,
+            BigDecimal newDealerPrice,
+            String oldAvailability,
+            String newAvailability,
+            String oldOriginalName,
+            String newOriginalName
+    ) {
+        if (isNewProduct) {
+            report.addChange(
+                    SyncChangeType.NEW_PRODUCT,
+                    sku,
+                    productName,
+                    category,
+                    "",
+                    "новий товар"
+            );
+            return;
+        }
+
+        boolean hasChanges = false;
+
+        if (isDifferent(oldDealerPrice, newDealerPrice)) {
+            report.addChange(
+                    SyncChangeType.PRICE_CHANGED,
+                    sku,
+                    productName,
+                    category,
+                    formatUsd(oldDealerPrice),
+                    formatUsd(newDealerPrice)
+            );
+            hasChanges = true;
+        }
+
+        if (isDifferent(oldAvailability, newAvailability)) {
+            report.addChange(
+                    SyncChangeType.AVAILABILITY_CHANGED,
+                    sku,
+                    productName,
+                    category,
+                    safe(oldAvailability),
+                    safe(newAvailability)
+            );
+            hasChanges = true;
+        }
+
+        if (isDifferent(oldOriginalName, newOriginalName)) {
+            report.addChange(
+                    SyncChangeType.NAME_CHANGED,
+                    sku,
+                    productName,
+                    category,
+                    safe(oldOriginalName),
+                    safe(newOriginalName)
+            );
+            hasChanges = true;
+        }
+
+        if (!hasChanges) {
+            report.addUnchangedProduct();
+        }
+    }
+
+    private boolean isDifferent(BigDecimal oldValue, BigDecimal newValue) {
+        if (oldValue == null && newValue == null) {
+            return false;
+        }
+
+        if (oldValue == null || newValue == null) {
+            return true;
+        }
+
+        return oldValue.compareTo(newValue) != 0;
+    }
+
+    private boolean isDifferent(String oldValue, String newValue) {
+        return !safe(oldValue).equalsIgnoreCase(safe(newValue));
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private String formatUsd(BigDecimal value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value.stripTrailingZeros().toPlainString() + " $";
     }
 }

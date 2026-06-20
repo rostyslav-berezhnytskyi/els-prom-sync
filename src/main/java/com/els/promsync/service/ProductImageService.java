@@ -104,7 +104,11 @@ public class ProductImageService {
             return "";
         }
 
-        return value.trim()
+        String normalized = replaceVisualCyrillicWithLatin(value);
+
+        return normalized.trim()
+                .replaceAll("[/\\\\]+", "-")
+                .replaceAll("\\s+", "-")
                 .replaceAll("[^A-Za-z0-9._-]+", "-")
                 .replaceAll("-+", "-")
                 .replaceAll("^-|-$", "");
@@ -163,5 +167,36 @@ public class ProductImageService {
                 + encodedSku
                 + "/"
                 + encodedFileName;
+    }
+
+    private String replaceVisualCyrillicWithLatin(String value) {
+        return value
+                .replace('А', 'A')
+                .replace('В', 'B')
+                .replace('Е', 'E')
+                .replace('К', 'K')
+                .replace('М', 'M')
+                .replace('Н', 'H')
+                .replace('О', 'O')
+                .replace('Р', 'P')
+                .replace('С', 'C')
+                .replace('Т', 'T')
+                .replace('Х', 'X')
+                .replace('У', 'Y')
+                .replace('І', 'I')
+
+                .replace('а', 'a')
+                .replace('в', 'b')
+                .replace('е', 'e')
+                .replace('к', 'k')
+                .replace('м', 'm')
+                .replace('н', 'h')
+                .replace('о', 'o')
+                .replace('р', 'p')
+                .replace('с', 'c')
+                .replace('т', 't')
+                .replace('х', 'x')
+                .replace('у', 'y')
+                .replace('і', 'i');
     }
 }

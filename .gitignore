@@ -46,5 +46,22 @@ logs/
 /logs
 /logs/*
 
-credentials.json
+app/config/credentials.json
 *.json
+
+# secrets
+.env
+.env.*
+!.env.example
+app/tokens/
+StoredCredential
+tokens/
+
+# build
+*.jar
+
+# IDE
+.idea/
+
+# local media
+els-media/

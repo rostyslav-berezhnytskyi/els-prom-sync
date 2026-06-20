@@ -46,6 +46,8 @@ pricing:
 google:
   sheets:
     spreadsheet-id: ${DEALER_SPREADSHEET_ID}
+    credentials-file: ${GOOGLE_CREDENTIALS_FILE:credentials.json}
+    tokens-dir: ${GOOGLE_TOKENS_DIR:tokens}
 
 openai:
   api-key: ${OPENAI_API_KEY}

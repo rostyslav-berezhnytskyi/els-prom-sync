@@ -1,6 +1,7 @@
 package com.els.promsync;
 
 import com.els.promsync.service.GoogleSheetsService;
+import com.els.promsync.service.ProductImageAuditService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -22,7 +23,8 @@ public class ElsPromSyncApplication {
     CommandLineRunner run(
             GoogleSheetsService googleSheetsService,
             TelegramNotificationService telegramNotificationService,
-            ProductRepository productRepository
+            ProductRepository productRepository,
+            ProductImageAuditService productImageAuditService
     ) {
         return args -> {
             System.out.println("--- Починаємо тестове зчитування з Google Sheets ---");
@@ -30,6 +32,8 @@ public class ElsPromSyncApplication {
             SyncReport report = googleSheetsService.testReadSheet();
 
             report.markYmlFeedReady(productRepository.countByActiveFromDealerTrue());
+
+            productImageAuditService.addMissingImagesToReport(report);
 
             telegramNotificationService.sendSyncReport(report);
 

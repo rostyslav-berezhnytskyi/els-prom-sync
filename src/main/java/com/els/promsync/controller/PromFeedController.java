@@ -2,6 +2,7 @@ package com.els.promsync.controller;
 
 import com.els.promsync.entity.Product;
 import com.els.promsync.repository.ProductRepository;
+import com.els.promsync.service.ProductImageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +22,7 @@ import java.util.Map;
 public class PromFeedController {
 
     private final ProductRepository productRepository;
+    private final ProductImageService productImageService;
 
     @GetMapping(value = "/prom.xml", produces = MediaType.APPLICATION_XML_VALUE)
     public String generatePromFeed() {
@@ -105,6 +108,12 @@ public class PromFeedController {
 
             if (categoryMap.containsKey(p.getDealerCategory())) {
                 xml.append("      <categoryId>").append(categoryMap.get(p.getDealerCategory())).append("</categoryId>\n");
+            }
+
+            for (String imageUrl : productImageService.findImageUrls(p)) {
+                xml.append("      <picture>")
+                        .append(escapeXml(imageUrl))
+                        .append("</picture>\n");
             }
 
             if (isReadyToShip(availability)) {
@@ -263,5 +272,17 @@ public class PromFeedController {
         String value = availability.toLowerCase().trim();
 
         return value.contains("резерв");
+    }
+
+    private List<String> parseImageUrls(String imageUrls) {
+        if (imageUrls == null || imageUrls.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(imageUrls.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .limit(10)
+                .toList();
     }
 }

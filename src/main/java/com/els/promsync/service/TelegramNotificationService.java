@@ -78,8 +78,10 @@ public class TelegramNotificationService {
         sb.append("Без змін: ").append(report.getUnchangedProducts()).append("\n");
         sb.append("Помилки: ").append(report.getErrorCount()).append("\n");
         sb.append("Зникли з каталогу дилера: ").append(report.countChanges(SyncChangeType.MISSING_FROM_DEALER)).append("\n");
+        sb.append("Без фото: ").append(report.countChanges(SyncChangeType.MISSING_IMAGE)).append("\n");
 
         appendSection(sb, "🚨 ЗНИКЛИ З КАТАЛОГУ ДИЛЕРА — перевірити та видалити з Prom", report.getChanges(), SyncChangeType.MISSING_FROM_DEALER);
+        appendSection(sb, "🖼 БЕЗ ФОТО — Prom може не виставити", report.getChanges(), SyncChangeType.MISSING_IMAGE);
         appendSection(sb, "🆕 Нові товари", report.getChanges(), SyncChangeType.NEW_PRODUCT);
         appendSection(sb, "💲 Зміни цін дилера", report.getChanges(), SyncChangeType.PRICE_CHANGED);
         appendSection(sb, "📦 Зміни наявності", report.getChanges(), SyncChangeType.AVAILABILITY_CHANGED);

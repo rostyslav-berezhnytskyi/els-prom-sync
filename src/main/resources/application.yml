@@ -41,3 +41,8 @@ google:
 
 openai:
   api-key: ${OPENAI_API_KEY}
+
+media:
+  products-dir: ${MEDIA_PRODUCTS_DIR:/home/admin_els/els-media/products}
+  public-base-url: ${MEDIA_PUBLIC_BASE_URL:https://elsserver.tailaf01c4.ts.net/images/products}
+  max-images-per-product: 10

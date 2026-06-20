@@ -20,6 +20,7 @@ app:
   use-monobank-rate: ${APP_USE_MONOBANK_RATE:true}
   ai-enabled: ${APP_AI_ENABLED:true}
   run-once: ${APP_RUN_ONCE:false}
+  ai-backfill-missing: ${APP_AI_BACKFILL_MISSING:false}
 
   dealer-code: ${APP_DEALER_CODE:SOLAR_VERSE}
   detect-missing-products: ${APP_DETECT_MISSING_PRODUCTS:false}

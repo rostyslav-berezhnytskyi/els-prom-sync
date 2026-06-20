@@ -135,8 +135,16 @@ public class PromFeedController {
             }
 
             // Назва
-            xml.append("      <name>").append(escapeXml(p.getNameRu())).append("</name>\n");
-            xml.append("      <name_ua>").append(escapeXml(p.getNameUk())).append("</name_ua>\n");
+            String nameUk = firstNotBlank(p.getNameUk(), p.getOriginalName());
+            String nameRu = firstNotBlank(p.getNameRu(), p.getOriginalName());
+
+            xml.append("      <name>")
+                    .append(escapeXml(nameRu))
+                    .append("</name>\n");
+
+            xml.append("      <name_ua>")
+                    .append(escapeXml(nameUk))
+                    .append("</name_ua>\n");
 
             // Ключові слова
             if (p.getKeywordsRu() != null && !p.getKeywordsRu().isBlank()) {
@@ -272,5 +280,17 @@ public class PromFeedController {
         String value = availability.toLowerCase().trim();
 
         return value.contains("резерв");
+    }
+
+    private String firstNotBlank(String preferred, String fallback) {
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred;
+        }
+
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback;
+        }
+
+        return "Товар";
     }
 }

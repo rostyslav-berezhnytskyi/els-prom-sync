@@ -12,7 +12,6 @@ import com.els.promsync.dto.SyncChangeType;
 import com.els.promsync.dto.SyncReport;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -31,6 +30,9 @@ public class ProductSyncService {
 
     @Value("${app.ai-enabled:true}")
     private boolean aiEnabled;
+
+    @Value("${app.ai-backfill-missing:false}")
+    private boolean aiBackfillMissing;
 
 
     @Transactional
@@ -96,24 +98,35 @@ public class ProductSyncService {
         product.setLastSeenAt(LocalDateTime.now());
         product.setRemovedFromDealerAt(null);
 
-        if (isNewProduct && aiEnabled) {
-            log.info("Новий товар [{}]. Категорія: [{}]. Запитуємо AI...", sku, effectiveCategory);
+        boolean newProduct = product.getId() == null;
+        boolean missingAiData = hasMissingAiData(product);
+
+        if (aiEnabled && (newProduct || (aiBackfillMissing && missingAiData))) {
+            log.info(
+                    "AI generation for product [{}]. New: {}, missing AI data: {}, category: [{}]",
+                    sku,
+                    newProduct,
+                    missingAiData,
+                    effectiveCategory
+            );
 
             AiProductResponse aiData = openAiService.enrichProduct(originalName, effectiveCategory);
 
             if (aiData != null) {
                 product.setNameUk(aiData.seoNameUa());
                 product.setDescriptionUk(aiData.seoDescriptionUa());
-                if (aiData.keywordsUa() != null) product.setKeywordsUk(String.join(", ", aiData.keywordsUa()));
+                if (aiData.keywordsUa() != null) {
+                    product.setKeywordsUk(String.join(", ", aiData.keywordsUa()));
+                }
 
                 product.setNameRu(aiData.seoNameRu());
                 product.setDescriptionRu(aiData.seoDescriptionRu());
-                if (aiData.keywordsRu() != null) product.setKeywordsRu(String.join(", ", aiData.keywordsRu()));
+                if (aiData.keywordsRu() != null) {
+                    product.setKeywordsRu(String.join(", ", aiData.keywordsRu()));
+                }
 
                 product.setTechnicalSpecs(aiData.specs());
                 product.setVendor(aiData.vendor());
-            } else if (report != null) {
-                report.addError("AI не повернув опис для нового товару: " + sku + " | " + originalName);
             }
         }
 
@@ -434,5 +447,25 @@ public class ProductSyncService {
                 );
             }
         }
+    }
+
+    private boolean hasMissingAiData(Product product) {
+        if (product == null) {
+            return true;
+        }
+
+        return isBlank(product.getNameUk())
+                || isBlank(product.getNameRu())
+                || isBlank(product.getDescriptionUk())
+                || isBlank(product.getDescriptionRu())
+                || isBlank(product.getKeywordsUk())
+                || isBlank(product.getKeywordsRu())
+                || isBlank(product.getVendor())
+                || product.getTechnicalSpecs() == null
+                || product.getTechnicalSpecs().isEmpty();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

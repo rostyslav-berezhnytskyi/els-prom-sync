@@ -20,7 +20,7 @@ public class ProductImageAuditService {
         }
 
         for (Product product : productRepository.findByActiveFromDealerTrue()) {
-            if (!productImageService.findImageUrls(product).isEmpty()) {
+            if (!productImageService.getStoredImageUrls(product).isEmpty()) {
                 continue;
             }
 

@@ -1,43 +1,61 @@
 package com.els.promsync;
 
+import com.els.promsync.dto.SyncReport;
 import com.els.promsync.service.GoogleSheetsService;
 import com.els.promsync.service.ProductImageAuditService;
+import com.els.promsync.service.ProductMediaSyncService;
+import com.els.promsync.service.PromFeedFileService;
+import com.els.promsync.service.TelegramNotificationService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
-import com.els.promsync.dto.SyncReport;
-import com.els.promsync.repository.ProductRepository;
-import com.els.promsync.service.TelegramNotificationService;
 
 @SpringBootApplication
-//@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class})
+@RequiredArgsConstructor
 public class ElsPromSyncApplication {
+
+    private final ConfigurableApplicationContext applicationContext;
+
+    @Value("${app.run-once:false}")
+    private boolean runOnce;
 
     public static void main(String[] args) {
         SpringApplication.run(ElsPromSyncApplication.class, args);
     }
 
-    // Цей код виконається автоматично після успішного старту Spring Boot
     @Bean
     CommandLineRunner run(
             GoogleSheetsService googleSheetsService,
-            TelegramNotificationService telegramNotificationService,
-            ProductRepository productRepository,
-            ProductImageAuditService productImageAuditService
+            ProductMediaSyncService productMediaSyncService,
+            PromFeedFileService promFeedFileService,
+            ProductImageAuditService productImageAuditService,
+            TelegramNotificationService telegramNotificationService
     ) {
         return args -> {
-            System.out.println("--- Починаємо тестове зчитування з Google Sheets ---");
+            System.out.println("--- Починаємо синхронізацію ELS Prom Sync ---");
 
             SyncReport report = googleSheetsService.testReadSheet();
 
-            report.markYmlFeedReady(productRepository.countByActiveFromDealerTrue());
+            productMediaSyncService.syncImageUrlsFromFolders();
+
+            promFeedFileService.writePromFeedFile(report);
 
             productImageAuditService.addMissingImagesToReport(report);
 
+            report.finish();
+
             telegramNotificationService.sendSyncReport(report);
 
-            System.out.println("--- Тест завершено ---");
+            System.out.println("--- Синхронізацію завершено ---");
+
+            if (runOnce) {
+                int exitCode = SpringApplication.exit(applicationContext, () -> 0);
+                System.exit(exitCode);
+            }
         };
     }
 }

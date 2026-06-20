@@ -25,14 +25,38 @@ public class ProductImageService {
     @Value("${media.max-images-per-product:10}")
     private int maxImagesPerProduct;
 
+    /**
+     * Used by feed generation.
+     * First uses URLs stored in DB.
+     * If DB is empty, falls back to folder scan.
+     */
     public List<String> findImageUrls(Product product) {
-        if (product == null) {
+        List<String> storedUrls = getStoredImageUrls(product);
+
+        if (!storedUrls.isEmpty()) {
+            return storedUrls;
+        }
+
+        return scanImageUrlsFromFolder(product);
+    }
+
+    /**
+     * Reads image URLs already stored in DB.
+     */
+    public List<String> getStoredImageUrls(Product product) {
+        if (product == null || product.getImageUrls() == null || product.getImageUrls().isBlank()) {
             return List.of();
         }
 
-        // Manual image URLs from DB have the highest priority.
-        if (product.getImageUrls() != null && !product.getImageUrls().isBlank()) {
-            return parseManualImageUrls(product.getImageUrls());
+        return parseManualImageUrls(product.getImageUrls());
+    }
+
+    /**
+     * Scans local/server folders and builds public URLs.
+     */
+    public List<String> scanImageUrlsFromFolder(Product product) {
+        if (product == null) {
+            return List.of();
         }
 
         if (publicBaseUrl == null || publicBaseUrl.isBlank()) {
@@ -47,6 +71,7 @@ public class ProductImageService {
         }
 
         Path productDir = Path.of(productsDir, categoryFolder, skuFolder);
+
         System.out.println("IMAGE SEARCH DIR: " + productDir);
 
         if (!Files.isDirectory(productDir)) {
@@ -64,6 +89,14 @@ public class ProductImageService {
         } catch (IOException e) {
             return List.of();
         }
+    }
+
+    public String toImageUrlsString(List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            return "";
+        }
+
+        return String.join(", ", imageUrls);
     }
 
     public String toSafeFolderName(String value) {

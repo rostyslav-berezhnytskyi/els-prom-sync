@@ -1,39 +1,47 @@
+server:
+  port: ${SERVER_PORT:8080}
+
 spring:
   application:
     name: els-prom-sync
+
   datasource:
-    url: jdbc:postgresql://localhost:5433/${DB_NAME}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
 
 app:
-  exchange-rate: 44.5
-  ai-enabled: true
-  dealer-code: SOLAR_VERSE
-  detect-missing-products: true
-  missing-products-min-seen-skus: 1
+  exchange-rate: ${APP_EXCHANGE_RATE:44.5}
+  use-monobank-rate: ${APP_USE_MONOBANK_RATE:true}
+  ai-enabled: ${APP_AI_ENABLED:true}
+  run-once: ${APP_RUN_ONCE:false}
+
+  dealer-code: ${APP_DEALER_CODE:SOLAR_VERSE}
+  detect-missing-products: ${APP_DETECT_MISSING_PRODUCTS:false}
+  missing-products-min-seen-skus: ${APP_MISSING_PRODUCTS_MIN_SEEN_SKUS:100}
 
 telegram:
-  enabled: true
+  enabled: ${TELEGRAM_ENABLED:true}
   bot-token: ${TELEGRAM_BOT_TOKEN}
   chat-id: ${TELEGRAM_CHAT_ID}
 
 pricing:
-  panel-markup: 1.12
-  cable-markup: 1.12
+  panel-markup: ${PRICING_PANEL_MARKUP:1.12}
+  cable-markup: ${PRICING_CABLE_MARKUP:1.12}
 
-  cheap-price-usd: 200
-  standard-price-usd: 600
-  high-price-usd: 2000
-  max-price-usd: 6000
+  cheap-price-usd: ${PRICING_CHEAP_PRICE_USD:200}
+  standard-price-usd: ${PRICING_STANDARD_PRICE_USD:600}
+  high-price-usd: ${PRICING_HIGH_PRICE_USD:2000}
+  max-price-usd: ${PRICING_MAX_PRICE_USD:6000}
 
-  cheap-markup: 1.35
-  standard-markup: 1.15
-  min-markup: 1.08
+  cheap-markup: ${PRICING_CHEAP_MARKUP:1.35}
+  standard-markup: ${PRICING_STANDARD_MARKUP:1.15}
+  min-markup: ${PRICING_MIN_MARKUP:1.08}
 
 google:
   sheets:
@@ -45,4 +53,7 @@ openai:
 media:
   products-dir: ${MEDIA_PRODUCTS_DIR:/home/admin_els/els-media/products}
   public-base-url: ${MEDIA_PUBLIC_BASE_URL:https://elsserver.tailaf01c4.ts.net/images/products}
-  max-images-per-product: 10
+  max-images-per-product: ${MEDIA_MAX_IMAGES_PER_PRODUCT:10}
+
+feed:
+  output-file: ${FEED_OUTPUT_FILE:/home/admin_els/els-media/feed/prom.xml}

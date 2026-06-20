@@ -273,16 +273,4 @@ public class PromFeedController {
 
         return value.contains("резерв");
     }
-
-    private List<String> parseImageUrls(String imageUrls) {
-        if (imageUrls == null || imageUrls.isBlank()) {
-            return List.of();
-        }
-
-        return Arrays.stream(imageUrls.split(","))
-                .map(String::trim)
-                .filter(value -> !value.isBlank())
-                .limit(10)
-                .toList();
-    }
 }

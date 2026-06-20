@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: els-prom-sync-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "127.0.0.1:${DB_PORT_EXTERNAL:-5433}:5432"
+    volumes:
+      - prom-sync-data:/var/lib/postgresql/data
+
+  app:
+    image: patton2510/els-prom-sync:latest
+    container_name: els-prom-sync-app
+    restart: "no"
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+
+      GOOGLE_CREDENTIALS_FILE: /app/config/credentials.json
+      GOOGLE_TOKENS_DIR: /app/tokens
+
+      MEDIA_PRODUCTS_DIR: /media/products
+      FEED_OUTPUT_FILE: /media/feed/prom.xml
+    volumes:
+      - /home/admin_els/els-media:/media
+      - /home/admin_els/els-prom-sync/secrets/credentials.json:/app/config/credentials.json:ro
+      - /home/admin_els/els-prom-sync/tokens:/app/tokens
+
+volumes:
+  prom-sync-data:

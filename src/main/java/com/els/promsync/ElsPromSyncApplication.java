@@ -29,7 +29,7 @@ public class ElsPromSyncApplication {
 
             SyncReport report = googleSheetsService.testReadSheet();
 
-            report.markYmlFeedReady(productRepository.count());
+            report.markYmlFeedReady(productRepository.countByActiveFromDealerTrue());
 
             telegramNotificationService.sendSyncReport(report);
 

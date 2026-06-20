@@ -16,14 +16,14 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class GoogleSheetsService {
 
-    private static final int START_ROW = 47;
-    private static final int END_ROW = 47;
+    private static final int START_ROW = 12;
+    private static final int END_ROW = 14;
 
     private static final List<String> ALLOWED_TABS = List.of(
 //            "Фотоелектричні модулі",
-            "Мережеві Інвертори"
+//            "Мережеві Інвертори"
 //            "Сонячний кабель",
-//            "Гібридні інвертори",
+            "Гібридні інвертори"
 //            "Акумулятори LV",
 //            "Акумулятори HV",
 //            "BESS",
@@ -42,6 +42,9 @@ public class GoogleSheetsService {
 
     @Value("${app.detect-missing-products:false}")
     private boolean detectMissingProducts;
+
+    @Value("${app.missing-products-min-seen-skus:50}")
+    private int missingProductsMinSeenSkus;
 
     /**
      * Temporary entry point for dealer sheet sync.
@@ -80,8 +83,13 @@ public class GoogleSheetsService {
 
             report.markGoogleSheetsReadSuccess();
 
-            if (detectMissingProducts) {
+            if (detectMissingProducts && seenSkus.size() >= missingProductsMinSeenSkus) {
                 productSyncService.markMissingProductsFromDealer(dealerCode, seenSkus, report);
+            } else if (detectMissingProducts) {
+                report.addError(
+                        "Missing-products check skipped: seenSkus=" + seenSkus.size()
+                                + ", minimum required=" + missingProductsMinSeenSkus
+                );
             }
 
         } catch (IOException e) {

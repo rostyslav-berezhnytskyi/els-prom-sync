@@ -17,8 +17,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class GoogleSheetsService {
 
-    private static final int START_ROW = 26;
-    private static final int END_ROW = 26;
+    private static final int START_ROW = 17;
+    private static final int END_ROW = 17;
 
     private static final List<String> ALLOWED_TABS = List.of(
             "Фотоелектричні модулі",

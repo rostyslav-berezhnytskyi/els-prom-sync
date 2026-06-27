@@ -1,13 +1,16 @@
 package com.els.promsync.service;
 
 import com.els.promsync.dto.AiProductResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.Map;
 import static com.els.promsync.config.AiPromptCatalog.*;
@@ -19,6 +22,15 @@ public class OpenAiService {
 
     @Value("${openai.api-key}")
     private String apiKey;
+
+    @Value("${openai.retry.max-attempts:3}")
+    private int maxAttempts;
+
+    @Value("${openai.retry.first-delay-ms:3000}")
+    private long firstDelayMs;
+
+    @Value("${openai.retry.second-delay-ms:10000}")
+    private long secondDelayMs;
 
     private final ObjectMapper objectMapper;
     private final RestClient restClient = RestClient.create();
@@ -115,20 +127,12 @@ public class OpenAiService {
         );
 
         try {
-            String responseStr = restClient.post()
-                    .uri("https://api.openai.com/v1/chat/completions")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(requestBody)
-                    .retrieve()
-                    .body(String.class);
-
-            var rootNode = objectMapper.readTree(responseStr);
-            String jsonContent = rootNode.path("choices").get(0).path("message").path("content").asText();
-            return objectMapper.readValue(jsonContent, AiProductResponse.class);
-
+            return executeWithRetry(
+                    () -> callOpenAi(requestBody),
+                    "OpenAI enrich product: " + originalName
+            );
         } catch (Exception e) {
-            log.error("Помилка генерації AI для товару {}: {}", originalName, e.getMessage());
+            log.error("Помилка генерації AI для товару {} після retry: {}", originalName, e.getMessage());
             return null;
         }
     }
@@ -145,5 +149,99 @@ public class OpenAiService {
                 || value.contains("ct-set")
                 || value.contains("ct_")
                 || value.contains("/333mv");
+    }
+
+    private AiProductResponse callOpenAi(Map<String, Object> requestBody) throws Exception {
+        String responseStr = restClient.post()
+                .uri("https://api.openai.com/v1/chat/completions")
+                .header("Authorization", "Bearer " + apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(requestBody)
+                .retrieve()
+                .body(String.class);
+
+        var rootNode = objectMapper.readTree(responseStr);
+
+        if (!rootNode.has("choices") || rootNode.path("choices").isEmpty()) {
+            throw new IllegalStateException("OpenAI response has no choices");
+        }
+
+        String jsonContent = rootNode.path("choices").get(0).path("message").path("content").asText();
+
+        if (jsonContent == null || jsonContent.isBlank()) {
+            throw new IllegalStateException("OpenAI response content is empty");
+        }
+
+        return objectMapper.readValue(jsonContent, AiProductResponse.class);
+    }
+
+    private <T> T executeWithRetry(OpenAiOperation<T> operation, String operationName) throws Exception {
+        int attempts = Math.max(1, maxAttempts);
+
+        for (int attempt = 1; attempt <= attempts; attempt++) {
+            try {
+                return operation.execute();
+            } catch (Exception e) {
+                boolean lastAttempt = attempt == attempts;
+
+                if (!isRetryableOpenAiError(e) || lastAttempt) {
+                    throw e;
+                }
+
+                long sleepMs = attempt == 1 ? firstDelayMs : secondDelayMs;
+
+                log.warn(
+                        "{} failed. Attempt {}/{}. Retry in {} ms. Error: {}",
+                        operationName,
+                        attempt,
+                        attempts,
+                        sleepMs,
+                        e.getMessage()
+                );
+
+                sleepBeforeRetry(sleepMs, operationName);
+            }
+        }
+
+        throw new IllegalStateException(operationName + " failed unexpectedly");
+    }
+
+    private boolean isRetryableOpenAiError(Exception e) {
+        if (e instanceof RestClientResponseException responseException) {
+            int statusCode = responseException.getStatusCode().value();
+
+            return statusCode == 408
+                    || statusCode == 409
+                    || statusCode == 429
+                    || statusCode >= 500;
+        }
+
+        if (e instanceof ResourceAccessException) {
+            return true;
+        }
+
+        if (e instanceof JsonProcessingException) {
+            return true;
+        }
+
+        if (e instanceof IllegalStateException) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private void sleepBeforeRetry(long sleepMs, String operationName) throws Exception {
+        try {
+            Thread.sleep(sleepMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(operationName + " interrupted during retry", e);
+        }
+    }
+
+    @FunctionalInterface
+    private interface OpenAiOperation<T> {
+        T execute() throws Exception;
     }
 }

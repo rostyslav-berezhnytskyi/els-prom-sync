@@ -52,6 +52,10 @@ google:
 
 openai:
   api-key: ${OPENAI_API_KEY}
+  retry:
+    max-attempts: ${OPENAI_RETRY_MAX_ATTEMPTS:3}
+    first-delay-ms: ${OPENAI_RETRY_FIRST_DELAY_MS:3000}
+    second-delay-ms: ${OPENAI_RETRY_SECOND_DELAY_MS:10000}
 
 media:
   products-dir: ${MEDIA_PRODUCTS_DIR:/home/admin_els/els-media/products}

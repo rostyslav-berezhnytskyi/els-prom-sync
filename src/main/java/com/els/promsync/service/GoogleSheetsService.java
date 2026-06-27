@@ -4,6 +4,7 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.model.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import com.els.promsync.dto.SyncReport;
@@ -13,12 +14,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GoogleSheetsService {
 
-    private static final int START_ROW = 17;
-    private static final int END_ROW = 17;
+    private static final int START_ROW = 12;
+    private static final int END_ROW = 12;
 
     private static final List<String> ALLOWED_TABS = List.of(
             "Фотоелектричні модулі",
@@ -96,10 +98,9 @@ public class GoogleSheetsService {
             }
 
         } catch (IOException e) {
+            log.error("Помилка читання Google Sheets", e);
             System.err.println("❌ Помилка читання таблиці: " + e.getMessage());
             report.addError("Помилка читання Google Sheets: " + e.getMessage());
-        } finally {
-            report.finish();
         }
 
         return report;
@@ -186,6 +187,7 @@ public class GoogleSheetsService {
                 productSyncService.processRow(row, tabTitle, dealerCode, report);
             } catch (Exception e) {
                 String name = getCell(row, 1);
+                log.error("Помилка обробки товару. SKU: {}, name: {}, tab: {}", sku, name, tabTitle, e);
                 report.addError("Помилка обробки товару: " + sku + " | " + name + " | " + e.getMessage());
             }
         }

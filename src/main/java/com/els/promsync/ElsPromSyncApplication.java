@@ -29,7 +29,8 @@ public class ElsPromSyncApplication {
             ProductMediaSyncService productMediaSyncService,
             PromFeedFileService promFeedFileService,
             ProductImageAuditService productImageAuditService,
-            TelegramNotificationService telegramNotificationService
+            TelegramNotificationService telegramNotificationService,
+            SyncHistoryService syncHistoryService
     ) {
         return args -> {
             System.out.println("--- Починаємо синхронізацію ELS Prom Sync ---");
@@ -43,6 +44,8 @@ public class ElsPromSyncApplication {
             productImageAuditService.addMissingImagesToReport(report);
 
             report.finish();
+
+            syncHistoryService.save(report);
 
             telegramNotificationService.sendSyncReport(report);
 

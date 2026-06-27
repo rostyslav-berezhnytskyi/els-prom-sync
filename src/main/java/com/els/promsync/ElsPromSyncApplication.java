@@ -1,11 +1,7 @@
 package com.els.promsync;
 
 import com.els.promsync.dto.SyncReport;
-import com.els.promsync.service.GoogleSheetsService;
-import com.els.promsync.service.ProductImageAuditService;
-import com.els.promsync.service.ProductMediaSyncService;
-import com.els.promsync.service.PromFeedFileService;
-import com.els.promsync.service.TelegramNotificationService;
+import com.els.promsync.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;

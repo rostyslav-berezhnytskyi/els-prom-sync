@@ -25,6 +25,8 @@ public class ProductSyncService {
     private final OpenAiService openAiService; // Наш сервіс для GPT
     private final PriceCalculationService priceCalculationService;
     private final ProductCategoryResolverService productCategoryResolverService;
+    private final PromPriceCalculationService promPriceCalculationService;
+
     @Value("${app.dealer-code:SOLAR_VERSE}")
     private String defaultDealerCode;
 
@@ -70,9 +72,14 @@ public class ProductSyncService {
             return;
         }
 
-        BigDecimal priceUah = priceCalculationService.calculateFinalPrice(
+        BigDecimal internalPriceUah = priceCalculationService.calculateFinalPrice(
                 basePriceUsd,
                 originalName,
+                effectiveCategory
+        );
+
+        BigDecimal promPriceUah = promPriceCalculationService.calculatePromPrice(
+                internalPriceUah,
                 effectiveCategory
         );
 
@@ -82,6 +89,7 @@ public class ProductSyncService {
         boolean isNewProduct = product.getId() == null;
 
         BigDecimal oldDealerPrice = product.getBasePriceUsd();
+        BigDecimal oldPromPrice = product.getPriceUah();
         String oldAvailability = product.getAvailability();
         String oldOriginalName = product.getOriginalName();
 
@@ -91,7 +99,7 @@ public class ProductSyncService {
         product.setDealerCategory(effectiveCategory);
         product.setAvailability(availability);
         product.setBasePriceUsd(basePriceUsd);
-        product.setPriceUah(priceUah);
+        product.setPriceUah(promPriceUah);
         product.setWarranty(warranty);
 
         product.setActiveFromDealer(true);
@@ -141,6 +149,8 @@ public class ProductSyncService {
                     effectiveCategory,
                     oldDealerPrice,
                     basePriceUsd,
+                    oldPromPrice,
+                    promPriceUah,
                     oldAvailability,
                     availability,
                     oldOriginalName,
@@ -216,9 +226,14 @@ public class ProductSyncService {
 
         BigDecimal dealerPriceUsd = parseUsdPrice(rawDealerPrice);
 
-        BigDecimal finalPriceUah = priceCalculationService.calculateFinalPrice(
+        BigDecimal internalPriceUah = priceCalculationService.calculateFinalPrice(
                 dealerPriceUsd,
                 originalName,
+                category
+        );
+
+        BigDecimal promPriceUah = promPriceCalculationService.calculatePromPrice(
+                internalPriceUah,
                 category
         );
 
@@ -227,7 +242,8 @@ public class ProductSyncService {
                         " | TAB: " + category +
                         " | SKU: " + sku +
                         " | DEALER PRICE: " + dealerPriceUsd +
-                        " | FINAL PRICE UAH: " + finalPriceUah +
+                        " | INTERNAL PRICE UAH: " + internalPriceUah +
+                        " | PROM PRICE UAH: " + promPriceUah +
                         " | NAME: " + originalName
         );
     }
@@ -320,6 +336,8 @@ public class ProductSyncService {
             String category,
             BigDecimal oldDealerPrice,
             BigDecimal newDealerPrice,
+            BigDecimal oldPromPrice,
+            BigDecimal newPromPrice,
             String oldAvailability,
             String newAvailability,
             String oldOriginalName,
@@ -347,6 +365,18 @@ public class ProductSyncService {
                     category,
                     formatUsd(oldDealerPrice),
                     formatUsd(newDealerPrice)
+            );
+            hasChanges = true;
+        }
+
+        if (isDifferent(oldPromPrice, newPromPrice)) {
+            report.addChange(
+                    SyncChangeType.PROM_PRICE_CHANGED,
+                    sku,
+                    productName,
+                    category,
+                    formatUah(oldPromPrice),
+                    formatUah(newPromPrice)
             );
             hasChanges = true;
         }
@@ -406,6 +436,14 @@ public class ProductSyncService {
         }
 
         return value.stripTrailingZeros().toPlainString() + " $";
+    }
+
+    private String formatUah(BigDecimal value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value.stripTrailingZeros().toPlainString() + " грн";
     }
 
     @Transactional

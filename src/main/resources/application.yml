@@ -60,3 +60,23 @@ media:
 
 feed:
   output-file: ${FEED_OUTPUT_FILE:/home/admin_els/els-media/feed/prom.xml}
+
+prom:
+  price-rounding-step-uah: ${PROM_PRICE_ROUNDING_STEP_UAH:10}
+  commission-threshold-uah: ${PROM_COMMISSION_THRESHOLD_UAH:10000}
+  reduced-commission-percent: ${PROM_REDUCED_COMMISSION_PERCENT:2}
+
+  commission-percent:
+    solar-panels: ${PROM_COMMISSION_SOLAR_PANELS:8.59}
+    battery-lv: ${PROM_COMMISSION_BATTERY_LV:8.59}
+    battery-hv: ${PROM_COMMISSION_BATTERY_HV:8.59}
+    hybrid-inverters: ${PROM_COMMISSION_HYBRID_INVERTERS:8.59}
+    grid-inverters: ${PROM_COMMISSION_GRID_INVERTERS:8.59}
+    autonomous-inverters: ${PROM_COMMISSION_AUTONOMOUS_INVERTERS:8.59}
+    solar-cable: ${PROM_COMMISSION_SOLAR_CABLE:8.59}
+    bess: ${PROM_COMMISSION_BESS:8.59}
+    inverter-meters: ${PROM_COMMISSION_INVERTER_METERS:8.59}
+    battery-bms: ${PROM_COMMISSION_BATTERY_BMS:8.59}
+    battery-racks: ${PROM_COMMISSION_BATTERY_RACKS:8.59}
+    bess-accessories: ${PROM_COMMISSION_BESS_ACCESSORIES:8.59}
+    uncategorized: ${PROM_COMMISSION_UNCATEGORIZED:8.59}

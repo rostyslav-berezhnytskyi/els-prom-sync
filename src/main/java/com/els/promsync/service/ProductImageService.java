@@ -72,8 +72,6 @@ public class ProductImageService {
 
         Path productDir = Path.of(productsDir, categoryFolder, skuFolder);
 
-        System.out.println("IMAGE SEARCH DIR: " + productDir);
-
         if (!Files.isDirectory(productDir)) {
             return List.of();
         }
@@ -114,7 +112,7 @@ public class ProductImageService {
                 .replaceAll("^-|-$", "");
     }
 
-    private String getCategoryFolder(String category) {
+    public String getCategoryFolder(String category) {
         if (category == null || category.isBlank()) {
             return "uncategorized";
         }

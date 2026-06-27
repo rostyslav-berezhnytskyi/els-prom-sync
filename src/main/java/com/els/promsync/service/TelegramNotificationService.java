@@ -73,6 +73,7 @@ public class TelegramNotificationService {
         sb.append("Пропущено рядків: ").append(report.getSkippedRows()).append("\n");
         sb.append("Нові товари: ").append(report.countChanges(SyncChangeType.NEW_PRODUCT)).append("\n");
         sb.append("Зміни цін дилера: ").append(report.countChanges(SyncChangeType.PRICE_CHANGED)).append("\n");
+        sb.append("Зміни фінальної ціни Prom: ").append(report.countChanges(SyncChangeType.PROM_PRICE_CHANGED)).append("\n");
         sb.append("Зміни наявності: ").append(report.countChanges(SyncChangeType.AVAILABILITY_CHANGED)).append("\n");
         sb.append("Зміни назв: ").append(report.countChanges(SyncChangeType.NAME_CHANGED)).append("\n");
         sb.append("Без змін: ").append(report.getUnchangedProducts()).append("\n");
@@ -84,6 +85,7 @@ public class TelegramNotificationService {
         appendSection(sb, "🖼 БЕЗ ФОТО — Prom може не виставити", report.getChanges(), SyncChangeType.MISSING_IMAGE);
         appendSection(sb, "🆕 Нові товари", report.getChanges(), SyncChangeType.NEW_PRODUCT);
         appendSection(sb, "💲 Зміни цін дилера", report.getChanges(), SyncChangeType.PRICE_CHANGED);
+        appendSection(sb, "💰 Зміни фінальної ціни Prom", report.getChanges(), SyncChangeType.PROM_PRICE_CHANGED);
         appendSection(sb, "📦 Зміни наявності", report.getChanges(), SyncChangeType.AVAILABILITY_CHANGED);
         appendSection(sb, "✏️ Зміни назв", report.getChanges(), SyncChangeType.NAME_CHANGED);
 

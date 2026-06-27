@@ -3,6 +3,7 @@ package com.els.promsync.dto;
 public enum SyncChangeType {
     NEW_PRODUCT,
     PRICE_CHANGED,
+    PROM_PRICE_CHANGED,
     AVAILABILITY_CHANGED,
     NAME_CHANGED,
     MISSING_FROM_DEALER,

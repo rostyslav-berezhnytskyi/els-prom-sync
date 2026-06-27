@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.els.promsync.util.XmlSafe;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -66,7 +67,7 @@ public class PromFeedController {
         xml.append("  <categories>\n");
         for (Map.Entry<String, Long> entry : categoryMap.entrySet()) {
             xml.append("    <category id=\"").append(entry.getValue()).append("\">")
-                    .append(escapeXml(entry.getKey()))
+                    .append(XmlSafe.text(entry.getKey()))
                     .append("</category>\n");
         }
         xml.append("  </categories>\n");
@@ -86,7 +87,7 @@ public class PromFeedController {
             boolean readyToShip = isReadyToShip(availability);
 
             xml.append("    <offer id=\"")
-                    .append(escapeXml(p.getSku()))
+                    .append(XmlSafe.attribute(p.getSku()))
                     .append("\" available=\"")
                     .append(promAvailability)
                     .append("\"");
@@ -98,7 +99,7 @@ public class PromFeedController {
             xml.append(">\n");
 
             // ОБОВ'ЯЗКОВО: Артикул (vendorCode) щоб Пром міг порівнювати товари
-            xml.append("      <vendorCode>").append(escapeXml(p.getSku())).append("</vendorCode>\n");
+            xml.append("      <vendorCode>").append(XmlSafe.text(p.getSku())).append("</vendorCode>\n");
 
             // Одиниці виміру
             xml.append("      <measure_unit>шт.</measure_unit>\n");
@@ -112,7 +113,7 @@ public class PromFeedController {
 
             for (String imageUrl : productImageService.findImageUrls(p)) {
                 xml.append("      <picture>")
-                        .append(escapeXml(imageUrl))
+                        .append(XmlSafe.text(imageUrl))
                         .append("</picture>\n");
             }
 
@@ -139,51 +140,56 @@ public class PromFeedController {
             String nameRu = firstNotBlank(p.getNameRu(), p.getOriginalName());
 
             xml.append("      <name>")
-                    .append(escapeXml(nameRu))
+                    .append(XmlSafe.text(nameRu))
                     .append("</name>\n");
 
             xml.append("      <name_ua>")
-                    .append(escapeXml(nameUk))
+                    .append(XmlSafe.text(nameUk))
                     .append("</name_ua>\n");
 
             // Ключові слова
             if (p.getKeywordsRu() != null && !p.getKeywordsRu().isBlank()) {
-                xml.append("      <keywords>").append(escapeXml(p.getKeywordsRu())).append("</keywords>\n");
+                xml.append("      <keywords>").append(XmlSafe.text(p.getKeywordsRu())).append("</keywords>\n");
             }
             if (p.getKeywordsUk() != null && !p.getKeywordsUk().isBlank()) {
-                xml.append("      <keywords_ua>").append(escapeXml(p.getKeywordsUk())).append("</keywords_ua>\n");
+                xml.append("      <keywords_ua>").append(XmlSafe.text(p.getKeywordsUk())).append("</keywords_ua>\n");
             }
 
             // Виробник
             if (p.getVendor() != null && !p.getVendor().isBlank()) {
-                xml.append("      <vendor>").append(escapeXml(p.getVendor())).append("</vendor>\n");
+                xml.append("      <vendor>").append(XmlSafe.text(p.getVendor())).append("</vendor>\n");
             }
 
             // Опис
             if (p.getDescriptionRu() != null) {
-                xml.append("      <description><![CDATA[")
-                        .append(p.getDescriptionRu().replace("\n", "<br/>"))
-                        .append("]]></description>\n");
+                xml.append("      <description>")
+                        .append(XmlSafe.cdata(p.getDescriptionRu().replace("\n", "<br/>")))
+                        .append("</description>\n");
             }
+
             if (p.getDescriptionUk() != null) {
-                xml.append("      <description_ua><![CDATA[")
-                        .append(p.getDescriptionUk().replace("\n", "<br/>"))
-                        .append("]]></description_ua>\n");
+                xml.append("      <description_ua>")
+                        .append(XmlSafe.cdata(p.getDescriptionUk().replace("\n", "<br/>")))
+                        .append("</description_ua>\n");
             }
 
             if (p.getTechnicalSpecs() != null) {
                 for (Map.Entry<String, String> spec : p.getTechnicalSpecs().entrySet()) {
                     // Фільтруємо пусті значення, щоб не було порожніх тегів
                     if (spec.getValue() != null && !spec.getValue().isBlank()) {
-                        xml.append("      <param name=\"").append(escapeXml(spec.getKey())).append("\">")
-                                .append(escapeXml(spec.getValue()))
+                        xml.append("      <param name=\"")
+                                .append(XmlSafe.attribute(spec.getKey()))
+                                .append("\">")
+                                .append(XmlSafe.text(spec.getValue()))
                                 .append("</param>\n");
                     }
                 }
             }
 
             if (p.getWarranty() != null && !p.getWarranty().isBlank()) {
-                xml.append("      <param name=\"Гарантійний термін\">").append(escapeXml(p.getWarranty())).append(" міс</param>\n");
+                xml.append("      <param name=\"Гарантійний термін\">")
+                        .append(XmlSafe.text(p.getWarranty()))
+                        .append(" міс</param>\n");
             }
 
             xml.append("    </offer>\n");
@@ -193,15 +199,6 @@ public class PromFeedController {
         xml.append("</yml_catalog>");
 
         return xml.toString();
-    }
-
-    private String escapeXml(String text) {
-        if (text == null) return "";
-        return text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&apos;");
     }
 
     private Long getFeedCategoryId(String category) {

@@ -1,5 +1,6 @@
 package com.els.promsync.service;
 
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.model.*;
 import lombok.RequiredArgsConstructor;
@@ -63,9 +64,12 @@ public class GoogleSheetsService {
         try {
             System.out.println("--- ДІАГНОСТИКА ПІДКЛЮЧЕННЯ ---");
 
-            Spreadsheet spreadsheet = sheetsService.spreadsheets()
-                    .get(spreadsheetId)
-                    .execute();
+            Spreadsheet spreadsheet = executeWithRetry(
+                    () -> sheetsService.spreadsheets()
+                            .get(spreadsheetId)
+                            .execute(),
+                    "Google Sheets document check"
+            );
 
             System.out.println("✅ Документ знайдено!");
 
@@ -131,9 +135,12 @@ public class GoogleSheetsService {
     private List<List<Object>> readSheetValues(String originalTitle, int startRow, int endRow) throws IOException {
         String range = "'" + originalTitle + "'!A" + startRow + ":G" + endRow;
 
-        ValueRange response = sheetsService.spreadsheets().values()
-                .get(spreadsheetId, range)
-                .execute();
+        ValueRange response = executeWithRetry(
+                () -> sheetsService.spreadsheets().values()
+                        .get(spreadsheetId, range)
+                        .execute(),
+                "Google Sheets read range " + range
+        );
 
         return response.getValues();
     }
@@ -191,12 +198,15 @@ public class GoogleSheetsService {
     private Set<Integer> getHiddenRowNumbers(String spreadsheetId, String sheetTitle) throws IOException {
         Set<Integer> hiddenRows = new HashSet<>();
 
-        Spreadsheet spreadsheet = sheetsService.spreadsheets()
-                .get(spreadsheetId)
-                .setRanges(List.of("'" + sheetTitle + "'"))
-                .setIncludeGridData(true)
-                .setFields("sheets(properties(title),data(startRow,rowMetadata(hiddenByUser,hiddenByFilter)))")
-                .execute();
+        Spreadsheet spreadsheet = executeWithRetry(
+                () -> sheetsService.spreadsheets()
+                        .get(spreadsheetId)
+                        .setRanges(List.of("'" + sheetTitle + "'"))
+                        .setIncludeGridData(true)
+                        .setFields("sheets(properties(title),data(startRow,rowMetadata(hiddenByUser,hiddenByFilter)))")
+                        .execute(),
+                "Google Sheets hidden rows " + sheetTitle
+        );
 
         for (Sheet sheet : spreadsheet.getSheets()) {
             if (!sheetTitle.equals(sheet.getProperties().getTitle())) {
@@ -325,6 +335,61 @@ public class GoogleSheetsService {
         }
 
         return row.get(index).toString().trim();
+    }
+
+    private <T> T executeWithRetry(GoogleSheetsOperation<T> operation, String operationName) throws IOException {
+        int maxAttempts = 3;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return operation.execute();
+            } catch (IOException e) {
+                boolean lastAttempt = attempt == maxAttempts;
+
+                if (!isRetryableGoogleSheetsError(e) || lastAttempt) {
+                    throw e;
+                }
+
+                long sleepMs = attempt == 1 ? 3_000 : 10_000;
+
+                System.err.println("⚠️ " + operationName
+                        + " failed. Attempt "
+                        + attempt + "/"
+                        + maxAttempts
+                        + ". Retry in "
+                        + sleepMs
+                        + " ms. Error: "
+                        + e.getMessage());
+
+                sleepBeforeRetry(sleepMs, operationName);
+            }
+        }
+
+        throw new IOException(operationName + " failed unexpectedly");
+    }
+
+    private boolean isRetryableGoogleSheetsError(IOException e) {
+        if (e instanceof GoogleJsonResponseException googleException) {
+            int statusCode = googleException.getStatusCode();
+
+            return statusCode == 429 || statusCode >= 500;
+        }
+
+        return true;
+    }
+
+    private void sleepBeforeRetry(long sleepMs, String operationName) throws IOException {
+        try {
+            Thread.sleep(sleepMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException(operationName + " interrupted during retry", e);
+        }
+    }
+
+    @FunctionalInterface
+    private interface GoogleSheetsOperation<T> {
+        T execute() throws IOException;
     }
 
 }

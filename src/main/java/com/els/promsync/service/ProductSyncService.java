@@ -1,6 +1,7 @@
 package com.els.promsync.service;
 
 import com.els.promsync.dto.AiProductResponse;
+import com.els.promsync.dto.AvailabilityStatus;
 import com.els.promsync.entity.Product;
 import com.els.promsync.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +52,7 @@ public class ProductSyncService {
         String sku = row.get(0).toString().trim();
         String originalName = row.size() > 1 && row.get(1) != null ? row.get(1).toString().trim() : "";
         String availability = parseAvailability(row, category);
+        AvailabilityStatus availabilityStatus = AvailabilityStatus.fromDealerText(availability);
 
         String effectiveCategory = productCategoryResolverService.resolve(
                 category,
@@ -97,7 +99,10 @@ public class ProductSyncService {
         product.setSku(sku);
         product.setOriginalName(originalName);
         product.setDealerCategory(effectiveCategory);
+
         product.setAvailability(availability);
+        product.setAvailabilityStatus(availabilityStatus);
+
         product.setBasePriceUsd(basePriceUsd);
         product.setPriceUah(promPriceUah);
         product.setWarranty(warranty);
@@ -470,6 +475,7 @@ public class ProductSyncService {
 
             product.setActiveFromDealer(false);
             product.setAvailability("зник з каталогу дилера");
+            product.setAvailabilityStatus(AvailabilityStatus.OUT_OF_STOCK);
             product.setRemovedFromDealerAt(LocalDateTime.now());
 
             productRepository.save(product);

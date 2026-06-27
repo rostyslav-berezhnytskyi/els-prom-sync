@@ -1,5 +1,6 @@
 package com.els.promsync.controller;
 
+import com.els.promsync.dto.AvailabilityStatus;
 import com.els.promsync.entity.Product;
 import com.els.promsync.repository.ProductRepository;
 import com.els.promsync.service.ProductImageService;
@@ -12,7 +13,6 @@ import com.els.promsync.util.XmlSafe;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,12 +79,14 @@ public class PromFeedController {
 
             if (p.getPriceUah() == null || p.getSku() == null) continue;
 
-            String availability = p.getAvailability() == null
-                    ? ""
-                    : p.getAvailability().trim().toLowerCase();
+            AvailabilityStatus availabilityStatus = p.getAvailabilityStatus();
 
-            String promAvailability = mapAvailabilityForYml(availability);
-            boolean readyToShip = isReadyToShip(availability);
+            if (availabilityStatus == null) {
+                availabilityStatus = AvailabilityStatus.fromDealerText(p.getAvailability());
+            }
+
+            String promAvailability = availabilityStatus.isAvailableForProm() ? "true" : "false";
+            boolean readyToShip = availabilityStatus.isReadyToShip();
 
             xml.append("    <offer id=\"")
                     .append(XmlSafe.attribute(p.getSku()))
@@ -117,22 +119,28 @@ public class PromFeedController {
                         .append("</picture>\n");
             }
 
-            if (isReadyToShip(availability)) {
+            if (availabilityStatus.isReadyToShip()) {
                 xml.append("      <regions>\n");
                 xml.append("        <region>Київ</region>\n");
                 xml.append("      </regions>\n");
             }
 
-            if (isPreorderOrOnTheWay(availability)) {
+            if (availabilityStatus.isPreorderOrOnTheWay()) {
                 xml.append("      <pickup>false</pickup>\n");
                 xml.append("      <delivery>true</delivery>\n");
                 xml.append("      <sales_notes>предоплата</sales_notes>\n");
             }
 
-            if (isReserved(availability)) {
+            if (availabilityStatus.isReserved()) {
                 xml.append("      <pickup>false</pickup>\n");
                 xml.append("      <delivery>false</delivery>\n");
                 xml.append("      <sales_notes>у резерві, уточнюйте наявність</sales_notes>\n");
+            }
+
+            if (availabilityStatus.isUnavailableOrUnknown()) {
+                xml.append("      <pickup>false</pickup>\n");
+                xml.append("      <delivery>false</delivery>\n");
+                xml.append("      <sales_notes>уточнюйте наявність</sales_notes>\n");
             }
 
             // Назва
@@ -223,60 +231,6 @@ public class PromFeedController {
             case "комплектуючі bess" -> 900000012L;
             default -> 900009999L;
         };
-    }
-
-    private boolean isReadyToShip(String availability) {
-        if (availability == null || availability.isBlank()) {
-            return false;
-        }
-
-        String value = availability.toLowerCase().trim();
-
-        return value.contains("в наявності")
-                || value.contains("на складі");
-    }
-
-    private String mapAvailabilityForYml(String availability) {
-        if (availability == null || availability.isBlank()) {
-            return "false";
-        }
-
-        String value = availability.toLowerCase().trim();
-
-        if (value.contains("в наявності") || value.contains("на складі")) {
-            return "true";
-        }
-
-        if (value.contains("в дорозі")
-                || value.contains("під замовлення")
-                || value.contains("под заказ")
-                || value.contains("резерв")) {
-            return "false";
-        }
-
-        return "false";
-    }
-
-    private boolean isPreorderOrOnTheWay(String availability) {
-        if (availability == null || availability.isBlank()) {
-            return false;
-        }
-
-        String value = availability.toLowerCase().trim();
-
-        return value.contains("в дорозі")
-                || value.contains("під замовлення")
-                || value.contains("под заказ");
-    }
-
-    private boolean isReserved(String availability) {
-        if (availability == null || availability.isBlank()) {
-            return false;
-        }
-
-        String value = availability.toLowerCase().trim();
-
-        return value.contains("резерв");
     }
 
     private String firstNotBlank(String preferred, String fallback) {

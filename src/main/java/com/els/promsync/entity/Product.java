@@ -1,5 +1,6 @@
 package com.els.promsync.entity;
 
+import com.els.promsync.dto.AvailabilityStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -34,6 +35,12 @@ public class Product {
     @Column(precision = 10, scale = 4)
     private BigDecimal basePriceUsd; // Ціна без ПДВ у $
     private String availability; // Статус (в дорозі, в наявності)
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "availability_status", nullable = false)
+    private AvailabilityStatus availabilityStatus = AvailabilityStatus.UNKNOWN;
+
     private String warranty; // Гарантія (5+5, 5 років)
 
     // ==========================================

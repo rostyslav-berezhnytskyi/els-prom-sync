@@ -21,6 +21,9 @@ app:
   ai-enabled: ${APP_AI_ENABLED:true}
   run-once: ${APP_RUN_ONCE:false}
   ai-backfill-missing: ${APP_AI_BACKFILL_MISSING:false}
+  ai-force-regenerate: ${APP_AI_FORCE_REGENERATE:false}
+  ai-only-skus: ${APP_AI_ONLY_SKUS:}
+  ai-only-categories: ${APP_AI_ONLY_CATEGORIES:}
 
   dealer-code: ${APP_DEALER_CODE:SOLAR_VERSE}
   detect-missing-products: ${APP_DETECT_MISSING_PRODUCTS:false}
@@ -51,10 +54,12 @@ google:
     tokens-dir: ${GOOGLE_TOKENS_DIR:tokens}
     start-row: ${GOOGLE_SHEETS_START_ROW:12}
     end-row: ${GOOGLE_SHEETS_END_ROW:1000}
+    allowed-tabs: ${GOOGLE_SHEETS_ALLOWED_TABS:Фотоелектричні модулі,Мережеві Інвертори,Сонячний кабель,Гібридні інвертори,Акумулятори LV,Акумулятори HV,BESS,Автономні Інвертори}
 
 openai:
   api-key: ${OPENAI_API_KEY}
-  model: ${OPENAI_MODEL}
+  model: ${OPENAI_MODEL:gpt-5.4}
+  temperature: ${OPENAI_TEMPERATURE:0.1}
   retry:
     max-attempts: ${OPENAI_RETRY_MAX_ATTEMPTS:3}
     first-delay-ms: ${OPENAI_RETRY_FIRST_DELAY_MS:3000}

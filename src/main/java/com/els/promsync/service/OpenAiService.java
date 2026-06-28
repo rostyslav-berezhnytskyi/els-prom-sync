@@ -33,7 +33,10 @@ public class OpenAiService {
     private long secondDelayMs;
 
     @Value("${openai.model:gpt-5.4}")
-    private long openAiModel;
+    private String openAiModel;
+
+    @Value("${openai.temperature:0.1}")
+    private double temperature;
 
     private final ObjectMapper objectMapper;
     private final RestClient restClient = RestClient.create();
@@ -126,7 +129,7 @@ public class OpenAiService {
                 "model", openAiModel,
                 "messages", new Object[]{ Map.of("role", "user", "content", prompt) },
                 "response_format", Map.of("type", "json_object"),
-                "temperature", 0.1
+                "temperature", temperature
         );
 
         try {

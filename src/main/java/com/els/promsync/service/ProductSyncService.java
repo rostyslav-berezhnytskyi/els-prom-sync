@@ -13,6 +13,7 @@ import com.els.promsync.dto.SyncChangeType;
 import com.els.promsync.dto.SyncReport;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -36,6 +37,15 @@ public class ProductSyncService {
 
     @Value("${app.ai-backfill-missing:false}")
     private boolean aiBackfillMissing;
+
+    @Value("${app.ai-force-regenerate:false}")
+    private boolean aiForceRegenerate;
+
+    @Value("${app.ai-only-skus:}")
+    private String aiOnlySkusRaw;
+
+    @Value("${app.ai-only-categories:}")
+    private String aiOnlyCategoriesRaw;
 
 
     @Transactional
@@ -113,13 +123,21 @@ public class ProductSyncService {
 
         boolean newProduct = product.getId() == null;
         boolean missingAiData = hasMissingAiData(product);
+        boolean forceAiRegeneration = shouldForceAiRegeneration(sku, effectiveCategory);
 
-        if (aiEnabled && (newProduct || (aiBackfillMissing && missingAiData))) {
+        boolean shouldGenerateAi = aiEnabled && (
+                newProduct
+                        || (aiBackfillMissing && missingAiData)
+                        || forceAiRegeneration
+        );
+
+        if (shouldGenerateAi) {
             log.info(
-                    "AI generation for product [{}]. New: {}, missing AI data: {}, category: [{}]",
+                    "AI generation for product [{}]. New: {}, missing AI data: {}, force regenerate: {}, category: [{}]",
                     sku,
                     newProduct,
                     missingAiData,
+                    forceAiRegeneration,
                     effectiveCategory
             );
 
@@ -140,8 +158,7 @@ public class ProductSyncService {
 
                 product.setTechnicalSpecs(aiData.specs());
                 product.setVendor(aiData.vendor());
-            }
-            else if (report != null) {
+            } else if (report != null) {
                 report.addError("AI не повернув дані для товару: " + sku + " | " + originalName);
             }
         }
@@ -494,6 +511,49 @@ public class ProductSyncService {
                 );
             }
         }
+    }
+
+    private boolean shouldForceAiRegeneration(String sku, String category) {
+        if (!aiForceRegenerate) {
+            return false;
+        }
+
+        boolean hasSkuFilter = hasCsvValues(aiOnlySkusRaw);
+        boolean hasCategoryFilter = hasCsvValues(aiOnlyCategoriesRaw);
+
+        if (!hasSkuFilter && !hasCategoryFilter) {
+            log.warn(
+                    "APP_AI_FORCE_REGENERATE=true, but APP_AI_ONLY_SKUS and APP_AI_ONLY_CATEGORIES are empty. Force regeneration skipped for safety."
+            );
+            return false;
+        }
+
+        if (hasSkuFilter && !csvContainsIgnoreCase(aiOnlySkusRaw, sku)) {
+            return false;
+        }
+
+        if (hasCategoryFilter && !csvContainsIgnoreCase(aiOnlyCategoriesRaw, category)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean hasCsvValues(String rawValue) {
+        return rawValue != null && Arrays.stream(rawValue.split(","))
+                .map(String::trim)
+                .anyMatch(value -> !value.isBlank());
+    }
+
+    private boolean csvContainsIgnoreCase(String rawValue, String expectedValue) {
+        if (rawValue == null || expectedValue == null || expectedValue.isBlank()) {
+            return false;
+        }
+
+        return Arrays.stream(rawValue.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .anyMatch(value -> value.equalsIgnoreCase(expectedValue.trim()));
     }
 
     private boolean hasMissingAiData(Product product) {

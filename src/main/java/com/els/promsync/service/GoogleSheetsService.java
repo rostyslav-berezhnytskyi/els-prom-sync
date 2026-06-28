@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.els.promsync.dto.SyncReport;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -19,22 +20,14 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class GoogleSheetsService {
 
-    @Value("${google.sheets.start-row:12}")
+    @Value("${google.sheets.start-row:1}")
     private int startRow;
 
-    @Value("${google.sheets.end-row:1000}")
+    @Value("${google.sheets.end-row:200}")
     private int endRow;
 
-    private static final List<String> ALLOWED_TABS = List.of(
-            "Фотоелектричні модулі",
-            "Мережеві Інвертори",
-            "Сонячний кабель",
-            "Гібридні інвертори",
-            "Акумулятори LV",
-            "Акумулятори HV",
-            "BESS",
-            "Автономні Інвертори"
-    );
+    @Value("${google.sheets.allowed-tabs:Фотоелектричні модулі,Мережеві Інвертори,Сонячний кабель,Гібридні інвертори,Акумулятори LV,Акумулятори HV,BESS,Автономні Інвертори}")
+    private String allowedTabsRaw;
 
     private final Sheets sheetsService;
     private final ProductSyncService productSyncService;
@@ -197,7 +190,14 @@ public class GoogleSheetsService {
     }
 
     private boolean isAllowedTab(String tabTitle) {
-        return ALLOWED_TABS.contains(tabTitle);
+        if (tabTitle == null || tabTitle.isBlank()) {
+            return false;
+        }
+
+        return Arrays.stream(allowedTabsRaw.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .anyMatch(allowedTab -> allowedTab.equalsIgnoreCase(tabTitle.trim()));
     }
 
     private Set<Integer> getHiddenRowNumbers(String spreadsheetId, String sheetTitle) throws IOException {

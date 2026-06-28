@@ -32,6 +32,9 @@ public class OpenAiService {
     @Value("${openai.retry.second-delay-ms:10000}")
     private long secondDelayMs;
 
+    @Value("${openai.model:gpt-5.4}")
+    private long openAiModel;
+
     private final ObjectMapper objectMapper;
     private final RestClient restClient = RestClient.create();
 
@@ -120,7 +123,7 @@ public class OpenAiService {
                 """.formatted(originalName, category, keysToUse, extraRules, schemaToUse, GENERAL_DESCRIPTION_RULES);
 
         Map<String, Object> requestBody = Map.of(
-                "model", "gpt-5.4",
+                "model", openAiModel,
                 "messages", new Object[]{ Map.of("role", "user", "content", prompt) },
                 "response_format", Map.of("type", "json_object"),
                 "temperature", 0.1
@@ -132,7 +135,7 @@ public class OpenAiService {
                     "OpenAI enrich product: " + originalName
             );
         } catch (Exception e) {
-            log.error("Помилка генерації AI для товару {} після retry: {}", originalName, e.getMessage());
+            log.error("Помилка генерації AI для товару {} після retry", originalName, e);
             return null;
         }
     }

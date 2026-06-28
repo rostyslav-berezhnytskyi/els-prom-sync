@@ -1,3 +1,5 @@
+name: els-prom-sync
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -14,7 +16,6 @@ services:
 
   app:
     image: patton2510/els-prom-sync:latest
-    container_name: els-prom-sync-app
     restart: "no"
     env_file:
       - .env
@@ -33,6 +34,7 @@ services:
       - /home/admin_els/els-media:/media
       - /home/admin_els/els-prom-sync/secrets/credentials.json:/app/config/credentials.json:ro
       - /home/admin_els/els-prom-sync/tokens:/app/tokens
+      - /home/admin_els/els-prom-sync/logs:/app/logs
 
 volumes:
   prom-sync-data:

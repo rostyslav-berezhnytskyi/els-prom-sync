@@ -19,8 +19,11 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class GoogleSheetsService {
 
-    private static final int START_ROW = 12;
-    private static final int END_ROW = 12;
+    @Value("${google.sheets.start-row:12}")
+    private int startRow;
+
+    @Value("${google.sheets.end-row:1000}")
+    private int endRow;
 
     private static final List<String> ALLOWED_TABS = List.of(
             "Фотоелектричні модулі",
@@ -118,7 +121,7 @@ public class GoogleSheetsService {
         System.out.println("\n➡ Починаємо читати вкладку: [" + cleanTitle + "]");
 
         Set<Integer> hiddenRows = getHiddenRowNumbers(spreadsheetId, originalTitle);
-        List<List<Object>> values = readSheetValues(originalTitle, START_ROW, END_ROW);
+        List<List<Object>> values = readSheetValues(originalTitle, startRow, endRow);
 
         if (values == null || values.isEmpty()) {
             System.out.println("Даних не знайдено на цій вкладці.");
@@ -157,7 +160,7 @@ public class GoogleSheetsService {
             Set<String> seenSkus
     ) {
         for (int i = 0; i < values.size(); i++) {
-            int realSheetRowNumber = START_ROW + i;
+            int realSheetRowNumber = startRow + i;
             List<Object> row = values.get(i);
 
             if (hiddenRows.contains(realSheetRowNumber)) {

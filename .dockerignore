@@ -15,3 +15,11 @@ StoredCredential
 els-media
 logs
 *.log
+
+target/
+.git/
+.idea/
+logs/
+tokens/
+secrets/
+credentials.json

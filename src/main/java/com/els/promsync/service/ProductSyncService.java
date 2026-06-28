@@ -141,6 +141,9 @@ public class ProductSyncService {
                 product.setTechnicalSpecs(aiData.specs());
                 product.setVendor(aiData.vendor());
             }
+            else if (report != null) {
+                report.addError("AI не повернув дані для товару: " + sku + " | " + originalName);
+            }
         }
 
         productRepository.save(product);

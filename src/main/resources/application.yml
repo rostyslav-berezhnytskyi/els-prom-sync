@@ -49,9 +49,12 @@ google:
     spreadsheet-id: ${DEALER_SPREADSHEET_ID}
     credentials-file: ${GOOGLE_CREDENTIALS_FILE:credentials.json}
     tokens-dir: ${GOOGLE_TOKENS_DIR:tokens}
+    start-row: ${GOOGLE_SHEETS_START_ROW:12}
+    end-row: ${GOOGLE_SHEETS_END_ROW:1000}
 
 openai:
   api-key: ${OPENAI_API_KEY}
+  model: ${OPENAI_MODEL}
   retry:
     max-attempts: ${OPENAI_RETRY_MAX_ATTEMPTS:3}
     first-delay-ms: ${OPENAI_RETRY_FIRST_DELAY_MS:3000}
